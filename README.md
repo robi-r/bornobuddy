@@ -1,4 +1,4 @@
-# BornoBuddy (বর্ণবন্ধু) – An Assistive AI Communication Tool
+# BornoBuddy (বর্ণবন্ধু) – An Assistive AI Communication Tool for Verbally Impaired autistic Children in Bangladesh
 
 **BornoBuddy (বর্ণবন্ধু)** is a simple, visual, AI-powered communication tool designed for **non-verbal or minimally verbal autistic children in Bangladesh**. It is a localized and culturally adapted version of the original EchoMind project.
 
@@ -41,7 +41,7 @@ This version of BornoBuddy has been enhanced with features specifically designed
 1.  **Clone the repository and install dependencies:**
 
     ```bash
-    git clone <repository-url>
+    git clone <https://github.com/robi-r/bornobuddy.git>
     cd BornoBuddy
     pip install -r requirements.txt
     ```
