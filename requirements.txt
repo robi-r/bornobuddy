@@ -1,0 +1,7 @@
+streamlit
+python-dotenv
+google-generativeai
+gtts
+Pillow
+streamlit-geolocation
+qdrant-client
