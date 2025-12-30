@@ -29,7 +29,7 @@ TRANSLATIONS = {
         "speak_button": "🎙️\n\nআমি বলতে চাই",
         "speak_hint": "শুরু করতে একবার চাপ দিন।",
         "intro_card_title": "আমি কথা বলতে চাই",
-        "intro_card_body": "বড় বাটনে চাপ দিয়ে শিশু কথা বলা শুরু করতে পারে।",
+        "intro_card_body": "বড় বাটনে চাপ দিয়ে তুমি কথা বলা শুরু করতে পারে।",
         "category_card_title": "তুমি কি বলতে চাও?",
         "category_card_body": "শিশুদের সুবিধার জন্য এখানে চারটি বিভাগ রাখা হয়েছে।",
         "phrase_card_title": "তুমি কি বলতে চাও?",
@@ -182,6 +182,18 @@ def get_current_datetime() -> Dict[str, str]:
         "now": now, # Add the datetime object itself
     }
 
+@st.cache_data(hash_funcs={gTTS: lambda _: None})
+def synthesize_audio(text: str, language: str) -> Optional[str]:
+    try:
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+        gTTS(text=text, lang=language).write_to_fp(tmp)
+        tmp.close()
+        return tmp.name
+    except Exception as exc:
+        st.warning(TEXT["warning_audio_gen"].format(exc=exc))
+        return None
+
+
 def inject_custom_css() -> None:
     """Inject custom CSS for a child-friendly, playful design."""
     css = """
@@ -189,31 +201,31 @@ def inject_custom_css() -> None:
     @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Open+Sans:wght@400;600;700&display=swap');
 
     :root {
-        --primary-accent: #FF6F61; /* Cheerful Red-Orange */
-        --secondary-accent: #6B8E23; /* Olive Green */
-        --tertiary-accent: #FFD700; /* Gold Yellow */
-        --pastel-blue: #ADD8E6; /* Light Blue */
-        --pastel-green: #90EE90; /* Light Green */
-        --pastel-yellow: #FFFACD; /* Lemon Chiffon */
-        --pastel-pink: #FFB6C1; /* Light Pink */
-        --bg-color: #F8F8F8; /* Soft Off-White Background */
-        --card-bg: #FFFFFF; /* White for cards */
-        --text-color: #333333; /* Dark Grey for readability */
-        --muted-text: #666666; /* Medium Grey for hints */
-        --danger-color: #FF4500; /* Orange Red for warnings */
+        --primary-accent: #64B5F6; /* Cheerful Light Blue */
+        --secondary-accent: #81C784; /* Soft Green */
+        --tertiary-accent: #FFD54F; /* Sunny Yellow */
+        --pastel-blue: #BBDEFB; /* Lighter Blue */
+        --pastel-green: #C8E6C9; /* Lighter Green */
+        --pastel-yellow: #FFF9C4; /* Lighter Yellow */
+        --pastel-pink: #FFCDD2; /* Lighter Pink */
+        --bg-color: #FDFDFD; /* Very Soft Off-White Background */
+        --card-bg: #FFFFFF; /* White for cards, still clean */
+        --text-color: #424242; /* Darker, softer Grey for readability */
+        --muted-text: #9E9E9E; /* Medium Grey for hints */
+        --danger-color: #EF9A9A; /* Soft Red for warnings */
         --border-color: #E0E0E0; /* Light grey border */
         
         --font-family-primary: 'Fredoka One', cursive;
         --font-family-secondary: 'Open Sans', sans-serif;
 
-        --radius-sm: 8px;
-        --radius-md: 16px;
-        --radius-lg: 20px; /* Large rounded corners for child-friendly */
+        --radius-sm: 10px;
+        --radius-md: 18px;
+        --radius-lg: 25px; /* More rounded corners for child-friendly */
         --radius-full: 999px;
 
-        --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
-        --shadow-md: 0 5px 15px rgba(0, 0, 0, 0.12);
-        --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.18);
+        --shadow-sm: 0 3px 10px rgba(0, 0, 0, 0.07);
+        --shadow-md: 0 7px 20px rgba(0, 0, 0, 0.1);
+        --shadow-lg: 0 12px 35px rgba(0, 0, 0, 0.15);
     }
     
     /* Global Styles */
@@ -233,16 +245,16 @@ def inject_custom_css() -> None:
     h1, h2, h3, h4, h5, h6 {
         font-family: var(--font-family-primary);
         color: var(--primary-accent);
-        margin-top: 1rem;
-        margin-bottom: 0.5rem;
+        margin-top: 1.2rem; /* Slightly more vertical space */
+        margin-bottom: 0.6rem;
     }
-    h1 { font-size: 2.8rem; }
-    h2 { font-size: 2.2rem; }
-    h3 { font-size: 1.8rem; }
+    h1 { font-size: 3rem; } /* Slightly larger h1 */
+    h2 { font-size: 2.4rem; }
+    h3 { font-size: 2rem; }
     p, label, .stMarkdown, .stText {
         font-family: var(--font-family-secondary);
-        font-size: 1.15rem; /* Increased body text size */
-        line-height: 1.6;
+        font-size: 1.2rem; /* Increased body text size */
+        line-height: 1.7; /* Slightly more line height for readability */
         color: var(--text-color);
     }
     .stMarkdown h2 { color: var(--text-color); } /* Ensure card titles are readable */
@@ -252,19 +264,20 @@ def inject_custom_css() -> None:
 
     /* Generous spacing between elements */
     .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
+        padding-top: 2.5rem; /* More padding */
+        padding-bottom: 2.5rem;
         max-width: 1000px; /* Wider content for wide layout */
     }
     .stVerticalBlock {
-        gap: 1.5rem; /* Increased vertical spacing */
+        gap: 1.8rem; /* Increased vertical spacing */
     }
     .card {
         background-color: var(--card-bg);
         border-radius: var(--radius-lg);
-        padding: 25px; /* More padding for cards */
-        margin-bottom: 1.8rem; /* More space between cards */
+        padding: 30px; /* More padding for cards */
+        margin-bottom: 2rem; /* More space between cards */
         box-shadow: var(--shadow-md);
+        border: 1px solid var(--border-color); /* Subtle border for definition */
     }
 
     /* Hide Streamlit UI elements */
@@ -273,9 +286,9 @@ def inject_custom_css() -> None:
     /* Button and Interactive Elements Styling */
     button {
         font-family: var(--font-family-primary);
-        font-size: 1.3rem; /* Larger font size for buttons */
-        min-height: 60px; /* Minimum height for touch-friendly */
-        padding: 20px 25px; /* Increased padding */
+        font-size: 1.4rem; /* Larger font size for buttons */
+        min-height: 65px; /* Minimum height for touch-friendly */
+        padding: 22px 28px; /* Increased padding */
         border-radius: var(--radius-lg); /* Large rounded corners */
         border: 2px solid var(--border-color); /* Subtle border */
         cursor: pointer;
@@ -286,26 +299,26 @@ def inject_custom_css() -> None:
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
+        gap: 12px;
         color: var(--text-color);
         background-color: var(--card-bg);
         box-shadow: var(--shadow-sm);
     }
 
     button:hover {
-        transform: translateY(-3px);
+        transform: translateY(-4px); /* More pronounced lift */
         box-shadow: var(--shadow-md);
         border-color: var(--secondary-accent);
     }
 
     button:active {
-        transform: translateY(0);
+        transform: translateY(-1px); /* Slightly sink */
         box-shadow: var(--shadow-sm);
     }
 
     button:focus-visible {
         outline: 4px solid var(--pastel-blue);
-        outline-offset: 2px;
+        outline-offset: 3px; /* More prominent focus indicator */
     }
 
     /* Primary button specific styles */
@@ -313,29 +326,29 @@ def inject_custom_css() -> None:
         background-color: var(--primary-accent) !important;
         color: white !important;
         border: none !important;
-        box-shadow: 0 8px 20px rgba(255, 111, 97, 0.4) !important;
+        box-shadow: 0 10px 25px rgba(100, 181, 246, 0.4) !important; /* Adjusted shadow to match new primary color */
     }
     button.primary-btn:hover, button[data-testid*="primary-button"]:hover {
-        background-color: #FF8F81 !important; /* Slightly lighter on hover */
-        box-shadow: 0 12px 25px rgba(255, 111, 97, 0.5) !important;
+        background-color: #79BFFD !important; /* Slightly lighter on hover */
+        box-shadow: 0 14px 30px rgba(100, 181, 246, 0.5) !important;
     }
 
     /* Specific button overrides for larger icons/text */
     [data-testid="stButton-speak_main"] button { /* Main "I want to speak" button */
-        width: 250px;
-        height: 250px;
+        width: 260px; /* Slightly larger */
+        height: 260px;
         border-radius: var(--radius-full) !important;
-        font-size: 1.8rem;
+        font-size: 2rem; /* Larger font */
         flex-direction: column;
-        gap: 15px;
+        gap: 18px;
         background-color: var(--primary-accent) !important;
         color: white !important;
         border: none !important;
-        box-shadow: 0 8px 20px rgba(255, 111, 97, 0.4) !important;
+        box-shadow: 0 10px 25px rgba(100, 181, 246, 0.4) !important;
     }
     [data-testid="stButton-speak_main"] button:hover {
-        background-color: #FF8F81 !important; /* Slightly lighter on hover */
-        box-shadow: 0 12px 25px rgba(255, 111, 97, 0.5) !important;
+        background-color: #79BFFD !important; /* Slightly lighter on hover */
+        box-shadow: 0 14px 30px rgba(100, 181, 246, 0.5) !important;
     }
 
     [data-testid="stButton-back_intro"] button,
@@ -344,30 +357,32 @@ def inject_custom_css() -> None:
         color: var(--text-color) !important;
         border: 2px solid var(--border-color) !important;
         box-shadow: var(--shadow-sm) !important;
-        min-height: 60px;
+        min-height: 65px;
         border-radius: var(--radius-full);
-        font-size: 1.3rem;
+        font-size: 1.4rem;
     }
     [data-testid="stButton-back_intro"] button:hover,
     [data-testid="stButton-back_to_categories"] button:hover {
         border-color: var(--secondary-accent) !important;
+        background-color: #FFECB3 !important; /* Slightly lighter yellow on hover */
     }
     
     [data-testid*="stButton-phrase_"] button { /* Phrase suggestion buttons */
-        min-height: 80px; /* Taller suggestion buttons */
+        min-height: 85px; /* Taller suggestion buttons */
         border-radius: var(--radius-md);
         background-color: var(--card-bg);
         box-shadow: var(--shadow-sm);
-        border: 2px solid var(--border-color);
+        border: 1px solid var(--border-color); /* Thinner border */
         justify-content: flex-start; /* Align text to start */
         text-align: left; /* Align text to left */
-        font-size: 1.25rem; /* Larger text for suggestions */
+        font-size: 1.3rem; /* Larger text for suggestions */
         font-family: var(--font-family-secondary);
         font-weight: 600;
         color: var(--text-color);
     }
     [data-testid*="stButton-phrase_"] button:hover {
-        border-color: var(--pastel-blue);
+        border-color: var(--primary-accent); /* Blue border on hover */
+        background-color: var(--pastel-blue); /* Light blue background on hover */
     }
 
     [data-testid="stButton-play_again_btn"] button, /* Play again button */
@@ -375,40 +390,40 @@ def inject_custom_css() -> None:
         background-color: var(--primary-accent) !important;
         color: white !important;
         border: none !important;
-        min-height: 70px;
+        min-height: 75px;
         border-radius: var(--radius-full);
-        font-size: 1.5rem;
-        box-shadow: 0 6px 18px rgba(255, 111, 97, 0.4) !important;
+        font-size: 1.6rem;
+        box-shadow: 0 8px 20px rgba(100, 181, 246, 0.4) !important;
     }
     [data-testid="stButton-play_again_btn"] button:hover,
     [data-testid="stButton-start_over_btn"] button:hover {
-        background-color: #FF8F81 !important;
-        box-shadow: 0 8px 25px rgba(255, 111, 97, 0.5) !important;
+        background-color: #79BFFD !important;
+        box-shadow: 0 10px 25px rgba(100, 181, 246, 0.5) !important;
     }
 
     /* General text adjustments */
     .hint {
-        font-size: 1rem;
+        font-size: 1.05rem;
         color: var(--muted-text);
         text-align: center;
-        margin-top: 0.8rem;
+        margin-top: 1rem;
     }
     .badge {
-        font-size: 0.9rem;
-        padding: 5px 12px;
+        font-size: 0.95rem;
+        padding: 6px 14px;
         border-radius: var(--radius-full);
         background: var(--pastel-blue);
-        color: #333333;
+        color: var(--text-color); /* Darker text for badges */
         font-family: var(--font-family-secondary);
         font-weight: 600;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.06em;
     }
     .section-title {
-        font-size: 1.4rem;
+        font-size: 1.5rem;
         font-family: var(--font-family-primary);
         color: var(--primary-accent);
-        margin-top: 1.5rem;
-        margin-bottom: 0.8rem;
+        margin-top: 1.8rem;
+        margin-bottom: 0.9rem;
     }
 
     /* Header styling */
@@ -420,16 +435,16 @@ def inject_custom_css() -> None:
         gap: 1rem;
     }
     .echomind-title {
-        font-size: 3rem;
+        font-size: 3.2rem;
         color: var(--primary-accent);
     }
     .echomind-subtitle {
-        font-size: 1.2rem;
+        font-size: 1.3rem;
         color: var(--muted-text);
     }
     [data-testid="stButton-lang_toggle"] button { /* Language toggle button */
-        font-size: 1.1rem;
-        padding: 12px 20px;
+        font-size: 1.15rem;
+        padding: 14px 22px;
         border-radius: var(--radius-full);
         background: var(--pastel-yellow);
         color: var(--text-color);
@@ -437,7 +452,7 @@ def inject_custom_css() -> None:
         font-weight: 600;
     }
     [data-testid="stButton-lang_toggle"] button:hover {
-        background: #FFEFD5;
+        background: #FFECB3;
         border-color: var(--secondary-accent);
     }
 
@@ -450,51 +465,26 @@ def inject_custom_css() -> None:
     }
     .stAlert {
         border-radius: var(--radius-md);
-        font-size: 1.1rem;
+        font-size: 1.15rem;
     }
     .stSpinner > div {
         color: var(--primary-accent);
-        font-size: 1.5rem;
+        font-size: 1.6rem;
     }
 
-    /* Voice Output Card Styling */
-    .card.play-card {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        min-height: 200px; /* Make the card more prominent */
-        background: linear-gradient(135deg, var(--pastel-blue) 0%, var(--pastel-green) 100%); /* Cheerful gradient */
-        color: white;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
-        box-shadow: var(--shadow-lg);
-        border: none;
-        padding: 30px;
-    }
-
-    .play-card .play-icon {
-        font-size: 5rem; /* Large icon for emphasis */
-        margin-bottom: 15px;
+    /* Ensuring emojis scale correctly */
+    .emoji {
+        font-size: inherit; /* Inherit font size from parent container */
         line-height: 1;
     }
 
-    .play-card .play-phrase {
-        font-family: var(--font-family-primary);
-        font-size: 2.5rem; /* Very large text for readability */
-        font-weight: bold;
-        color: white; /* Ensure text is white for contrast against gradient */
-        text-align: center;
-        margin: 0;
-    }
-    
-    
-    /* General Streamlit button styling - applies to all unless overridden */
+    /* Adjust Streamlit default button to match custom styling */
     .stButton > button {
         width: 100%;
         font-family: var(--font-family-primary);
-        font-size: 1.3rem;
-        min-height: 60px;
-        padding: 20px 25px;
+        font-size: 1.4rem;
+        min-height: 65px;
+        padding: 22px 28px;
         border-radius: var(--radius-lg);
         border: 2px solid var(--border-color);
         background-color: var(--card-bg);
@@ -503,28 +493,28 @@ def inject_custom_css() -> None:
         display: flex; /* Enable flexbox for content alignment */
         align-items: center; /* Vertically center content */
         justify-content: center; /* Horizontally center content */
-        gap: 10px; /* Space between emoji and text */
+        gap: 12px; /* Space between emoji and text */
         transition: all 0.2s ease-in-out;
         user-select: none;
         -webkit-user-select: none;
         touch-action: manipulation;
     }
     .stButton > button:hover {
-        transform: translateY(-3px);
+        transform: translateY(-4px);
         box-shadow: var(--shadow-md);
         border-color: var(--secondary-accent);
     }
     .stButton > button:active {
-        transform: translateY(0);
+        transform: translateY(-1px);
         box-shadow: var(--shadow-sm);
     }
     .stButton > button:focus-visible {
         outline: 4px solid var(--pastel-blue);
-        outline-offset: 2px;
+        outline-offset: 3px;
     }
     
     </style>
-    """
+    """)
     st.markdown(css, unsafe_allow_html=True)
 
 def render_header() -> None:
@@ -678,16 +668,6 @@ def fetch_options(category: str, language: str) -> None:
     st.session_state.options = [{"id": i, **p} for i, p in enumerate(phrases)]
     st.session_state.stage = "phrases"
 
-def synthesize_audio(text: str, language: str) -> Optional[str]:
-    try:
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-        gTTS(text=text, lang=language).write_to_fp(tmp)
-        tmp.close()
-        return tmp.name
-    except Exception as exc:
-        st.warning(TEXT["warning_audio_gen"].format(exc=exc))
-        return None
-
 
 def reset_flow() -> None:
     st.session_state.stage = "intro"
@@ -716,7 +696,6 @@ def render_stage_intro() -> None:
             st.rerun()
     st.markdown(f'<p class="hint">{TEXT["speak_hint"]}</p>', unsafe_allow_html=True)
 
-
 def render_categories() -> None:
     st.markdown(f"""
     <div class="card">
@@ -737,50 +716,44 @@ def render_categories() -> None:
                 st.session_state.stage = "loading"
                 st.rerun()
 
-
-    st.markdown("---") # Add a separator for better visual distinction
-    if st.button(f'🏠 {TEXT["back_to_intro"]}', key="back_intro", use_container_width=True):
+    if st.button(f'← {TEXT["back_to_intro"]}', key="back_intro", use_container_width=True):
         reset_flow()
         st.rerun()
-
 
 def render_phrase_options() -> None:
     st.markdown(f"## {TEXT['tap_sentence_title']}")
 
-    # Use a container for phrase options to maintain visual grouping and spacing
-    with st.container(border=False):
-        for option in st.session_state.options:
-            # The button text includes the emoji and the suggested phrase.
-            # Styling for "suggestion-btn" is applied via CSS targeting "stButton-phrase_*" data-testid.
-            if st.button(f"{option['emoji']}  {option['text']}", 
-                         key=f"phrase_{option['id']}", 
-                         use_container_width=True):
-                st.session_state.last_phrase = option["text"]
-                st.session_state.audio_file = synthesize_audio(option["text"], LANG)
+    for option in st.session_state.options:
+        if st.button(
+            f"{option['emoji']}  {option['text']}",
+            key=f"phrase_{option['id']}",
+            use_container_width=True
+        ):
+            st.session_state.last_phrase = option["text"]
+            st.session_state.audio_file = synthesize_audio(option["text"], LANG)
 
-                try:
-                    if st.session_state.get("qdrant_initialized"):
-                        qdrant_manager.store_phrase(
-                            child_id=CHILD_ID,
-                            category=st.session_state.selected_category,
-                            phrase=option["text"],
-                            context=build_context(st.session_state.selected_category),
-                        )
-                except Exception:
-                    pass
+            try:
+                if st.session_state.get("qdrant_initialized"):
+                    qdrant_manager.store_phrase(
+                        child_id=CHILD_ID,
+                        category=st.session_state.selected_category,
+                        phrase=option["text"],
+                        context=build_context(st.session_state.selected_category),
+                    )
+            except Exception:
+                pass
 
-                st.session_state.stage = "voice"
-                st.rerun()
-
+            st.session_state.stage = "voice"
+            st.rerun()
+    
     st.markdown("---") # Add a separator for better visual distinction
     if st.button(TEXT["show_more_options"], key="show_more_options_btn", use_container_width=True):
         st.session_state.stage = "loading"
         st.rerun()
 
-    if st.button(f'← {TEXT["back_to_categories"]}', key="back_to_categories", use_container_width=True):
+    if st.button(TEXT["back_to_categories"], use_container_width=True):
         st.session_state.stage = "categories"
         st.rerun()
-
 
 
 def render_voice_output() -> None:
@@ -788,36 +761,35 @@ def render_voice_output() -> None:
         st.session_state.stage = "phrases"
         st.rerun()
         return
-
-    # Use a card for the voice output to make it visually prominent
+        
     st.markdown(f"""
     <div class="card play-card">
-        <div style="text-align: center;">
-            <span class="play-icon">🔊</span>
-            <p class="play-phrase">{st.session_state.last_phrase}</p>
-        </div>
+        <span class="badge">{TEXT["stage_4_badge"]}</span>
+        <div class="play-icon">🔊</div>
+        <p class="play-phrase">{st.session_state.last_phrase}</p>
+        <p class="hint">{TEXT["voice_card_body"]}</p>
     </div>
-    """, unsafe_allow_html=True)
+    """.format(
+        stage_4_badge=TEXT["stage_4_badge"],
+        last_phrase=st.session_state.last_phrase,
+        voice_card_body=TEXT["voice_card_body"]
+    ), unsafe_allow_html=True)
 
     if st.session_state.audio_file and not st.session_state.play_triggered:
         st.audio(st.session_state.audio_file, autoplay=True)
         st.session_state.play_triggered = True
-
+    
     col1, col2 = st.columns(2)
 
     with col1:
         # "Play Again" button with an emoji and full width.
         # Styling applied via CSS targeting "stButton-play_again_btn".
         if st.button(f'▶ {TEXT["play_again"]}', key="play_again_btn", use_container_width=True):
-            if st.session_state.audio_file: # Only play if audio file exists
-                st.audio(st.session_state.audio_file, autoplay=True)
-
-    with col2:
-        # "Start Over" button with an emoji and full width.
-        # Styling applied via CSS targeting "stButton-start_over_btn".
-        if st.button(f'🏠 {TEXT["start_over"]}', key="start_over_btn", use_container_width=True):
-            reset_flow()
+            st.session_state.play_triggered = False # Reset flag to allow replay
             st.rerun()
+    if st.button(f'🏠 {TEXT["start_over"]}', key="start_over_btn", use_container_width=True):
+        reset_flow()
+        st.rerun()
 
 # --- Main Render ----------------------------------------------------------- #
 
