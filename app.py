@@ -9,10 +9,9 @@ from typing import Dict, List, Optional
 
 import streamlit as st
 import streamlit.components.v1 as components
-from dotenv import load_dotenv
 from dotenv import load_dotenv, find_dotenv
 from gtts import gTTS
-import google.generativeai as genai
+import google.genai as genai
 
 import qdrant_manager
 
@@ -145,21 +144,11 @@ TEXT = TRANSLATIONS[LANG]
 st.set_page_config(
     page_title=TEXT["page_title"],
     page_icon="🗣️",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="collapsed",
 )
 
 load_dotenv(find_dotenv())
-
-# Force light theme
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap');
-    .stApp {
-        background: #f0f2f5;
-    }
-    </style>
-""", unsafe_allow_html=True)
 
 
 MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-pro")
@@ -169,17 +158,15 @@ if not GEMINI_API_KEY:
     st.error("GEMINI_API_KEY is missing. Set it in your .env file.")
     st.stop()
 
-genai.configure(api_key=GEMINI_API_KEY)
+# Initialize Gemini client
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 @st.cache_resource
-def get_gemini_model():
-    try:
-        return genai.GenerativeModel(MODEL_NAME)
-    except Exception as e:
-        st.error(TEXT["error_gemini_model"].format(model_name=MODEL_NAME, e=e))
-        st.info(TEXT["info_gemini_model"])
-        st.stop()
-        return None
+@st.cache_resource
+def get_gemini_client():
+    return genai.Client(api_key=GEMINI_API_KEY)
+
+
 
 CHILD_ID = "demo_child"
 
@@ -192,33 +179,353 @@ def get_current_datetime() -> Dict[str, str]:
         "time": now.strftime("%H:%M:%S"),
         "day_of_week": now.strftime("%A"),
         "time_of_day": "morning" if now.hour < 12 else "afternoon" if now.hour < 17 else "evening",
+        "now": now, # Add the datetime object itself
     }
-
-
 
 def inject_custom_css() -> None:
-    st.markdown("""
+    """Inject custom CSS for a child-friendly, playful design."""
+    css = """
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Open+Sans:wght@400;600;700&display=swap');
+
     :root {
-        --bg: #f0f2f5; --card: #ffffff; --accent: #006a4e; --accent-soft: #e6f2ed;
-        --text: #212121; --muted: #757575; --danger: #f42a41; --radius-lg: 24px;
-        --radius-md: 16px; --shadow-md: 0 4px 18px rgba(0, 0, 0, 0.05);
+        --primary-accent: #FF6F61; /* Cheerful Red-Orange */
+        --secondary-accent: #6B8E23; /* Olive Green */
+        --tertiary-accent: #FFD700; /* Gold Yellow */
+        --pastel-blue: #ADD8E6; /* Light Blue */
+        --pastel-green: #90EE90; /* Light Green */
+        --pastel-yellow: #FFFACD; /* Lemon Chiffon */
+        --pastel-pink: #FFB6C1; /* Light Pink */
+        --bg-color: #F8F8F8; /* Soft Off-White Background */
+        --card-bg: #FFFFFF; /* White for cards */
+        --text-color: #333333; /* Dark Grey for readability */
+        --muted-text: #666666; /* Medium Grey for hints */
+        --danger-color: #FF4500; /* Orange Red for warnings */
+        --border-color: #E0E0E0; /* Light grey border */
+        
+        --font-family-primary: 'Fredoka One', cursive;
+        --font-family-secondary: 'Open Sans', sans-serif;
+
+        --radius-sm: 8px;
+        --radius-md: 16px;
+        --radius-lg: 20px; /* Large rounded corners for child-friendly */
+        --radius-full: 999px;
+
+        --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+        --shadow-md: 0 5px 15px rgba(0, 0, 0, 0.12);
+        --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.18);
     }
-    .main .block-container { max-width: 420px; padding: 1rem; background: transparent; }
+    
+    /* Global Styles */
+    body {
+        font-family: var(--font-family-secondary);
+        color: var(--text-color);
+        background: var(--bg-color);
+    }
+
+    /* Playful background elements */
+    .stApp {
+        background-color: var(--bg-color);
+        background-image: url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23E0E0E0" fill-opacity="0.2"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6zm30 30v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
+    }
+
+    /* Increase font sizes globally */
+    h1, h2, h3, h4, h5, h6 {
+        font-family: var(--font-family-primary);
+        color: var(--primary-accent);
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    h1 { font-size: 2.8rem; }
+    h2 { font-size: 2.2rem; }
+    h3 { font-size: 1.8rem; }
+    p, label, .stMarkdown, .stText {
+        font-family: var(--font-family-secondary);
+        font-size: 1.15rem; /* Increased body text size */
+        line-height: 1.6;
+        color: var(--text-color);
+    }
+    .stMarkdown h2 { color: var(--text-color); } /* Ensure card titles are readable */
+    
+    /* Ensure high color contrast for readability */
+    /* This is implicitly handled by careful choice of var(--text-color) and background */
+
+    /* Generous spacing between elements */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 1000px; /* Wider content for wide layout */
+    }
+    .stVerticalBlock {
+        gap: 1.5rem; /* Increased vertical spacing */
+    }
+    .card {
+        background-color: var(--card-bg);
+        border-radius: var(--radius-lg);
+        padding: 25px; /* More padding for cards */
+        margin-bottom: 1.8rem; /* More space between cards */
+        box-shadow: var(--shadow-md);
+    }
+
+    /* Hide Streamlit UI elements */
     #MainMenu, footer, header, .stDeployButton { display: none !important; }
-    button { font-family: 'Hind Siliguri', -apple-system, sans-serif !important; user-select: none; -webkit-user-select: none; }
-    .card { background: var(--card); border-radius: var(--radius-lg); padding: 18px; box-shadow: var(--shadow-md); margin-bottom: 1rem; }
-    .badge { padding: 2px 8px; border-radius: 999px; font-size: 10px; background: var(--accent-soft); color: var(--accent); display: inline-block; margin-bottom: 0.5rem; font-weight: 600; }
-    .hint { font-size: 12px; color: var(--muted); text-align: center; margin-top: 0.5rem; }
-    .back-btn { width: 100%; padding: 12px; border-radius: 999px; background: #f0f2f5; color: var(--muted); font-size: 13px; font-weight: 600; border: none; box-shadow: none; cursor: pointer; margin-top: 1rem; }
-    .back-btn:hover { background: #e9ecef; }
-    .echomind-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
-    .echomind-title-wrap { display: flex; align-items: center; gap: 0.75rem; }
-    .echomind-title { font-weight: 700; font-size: 22px; color: var(--text); }
-    .lang-toggle-btn { font-size: 12px; padding: 6px 10px; border-radius: 999px; background: #e9ecef; color: var(--muted); border: none; font-weight: 600; }
-    .lang-toggle-btn:hover { background: #dde1e5; }
+
+    /* Button and Interactive Elements Styling */
+    button {
+        font-family: var(--font-family-primary);
+        font-size: 1.3rem; /* Larger font size for buttons */
+        min-height: 60px; /* Minimum height for touch-friendly */
+        padding: 20px 25px; /* Increased padding */
+        border-radius: var(--radius-lg); /* Large rounded corners */
+        border: 2px solid var(--border-color); /* Subtle border */
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        color: var(--text-color);
+        background-color: var(--card-bg);
+        box-shadow: var(--shadow-sm);
+    }
+
+    button:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--secondary-accent);
+    }
+
+    button:active {
+        transform: translateY(0);
+        box-shadow: var(--shadow-sm);
+    }
+
+    button:focus-visible {
+        outline: 4px solid var(--pastel-blue);
+        outline-offset: 2px;
+    }
+
+    /* Primary button specific styles */
+    button.primary-btn, button[data-testid*="primary-button"] {
+        background-color: var(--primary-accent) !important;
+        color: white !important;
+        border: none !important;
+        box-shadow: 0 8px 20px rgba(255, 111, 97, 0.4) !important;
+    }
+    button.primary-btn:hover, button[data-testid*="primary-button"]:hover {
+        background-color: #FF8F81 !important; /* Slightly lighter on hover */
+        box-shadow: 0 12px 25px rgba(255, 111, 97, 0.5) !important;
+    }
+
+    /* Specific button overrides for larger icons/text */
+    [data-testid="stButton-speak_main"] button { /* Main "I want to speak" button */
+        width: 250px;
+        height: 250px;
+        border-radius: var(--radius-full) !important;
+        font-size: 1.8rem;
+        flex-direction: column;
+        gap: 15px;
+        background-color: var(--primary-accent) !important;
+        color: white !important;
+        border: none !important;
+        box-shadow: 0 8px 20px rgba(255, 111, 97, 0.4) !important;
+    }
+    [data-testid="stButton-speak_main"] button:hover {
+        background-color: #FF8F81 !important; /* Slightly lighter on hover */
+        box-shadow: 0 12px 25px rgba(255, 111, 97, 0.5) !important;
+    }
+
+    [data-testid="stButton-back_intro"] button,
+    [data-testid="stButton-back_to_categories"] button { /* Back buttons */
+        background-color: var(--pastel-yellow) !important;
+        color: var(--text-color) !important;
+        border: 2px solid var(--border-color) !important;
+        box-shadow: var(--shadow-sm) !important;
+        min-height: 60px;
+        border-radius: var(--radius-full);
+        font-size: 1.3rem;
+    }
+    [data-testid="stButton-back_intro"] button:hover,
+    [data-testid="stButton-back_to_categories"] button:hover {
+        border-color: var(--secondary-accent) !important;
+    }
+    
+    [data-testid*="stButton-phrase_"] button { /* Phrase suggestion buttons */
+        min-height: 80px; /* Taller suggestion buttons */
+        border-radius: var(--radius-md);
+        background-color: var(--card-bg);
+        box-shadow: var(--shadow-sm);
+        border: 2px solid var(--border-color);
+        justify-content: flex-start; /* Align text to start */
+        text-align: left; /* Align text to left */
+        font-size: 1.25rem; /* Larger text for suggestions */
+        font-family: var(--font-family-secondary);
+        font-weight: 600;
+        color: var(--text-color);
+    }
+    [data-testid*="stButton-phrase_"] button:hover {
+        border-color: var(--pastel-blue);
+    }
+
+    [data-testid="stButton-play_again_btn"] button, /* Play again button */
+    [data-testid="stButton-start_over_btn"] button { /* Start over button */
+        background-color: var(--primary-accent) !important;
+        color: white !important;
+        border: none !important;
+        min-height: 70px;
+        border-radius: var(--radius-full);
+        font-size: 1.5rem;
+        box-shadow: 0 6px 18px rgba(255, 111, 97, 0.4) !important;
+    }
+    [data-testid="stButton-play_again_btn"] button:hover,
+    [data-testid="stButton-start_over_btn"] button:hover {
+        background-color: #FF8F81 !important;
+        box-shadow: 0 8px 25px rgba(255, 111, 97, 0.5) !important;
+    }
+
+    /* General text adjustments */
+    .hint {
+        font-size: 1rem;
+        color: var(--muted-text);
+        text-align: center;
+        margin-top: 0.8rem;
+    }
+    .badge {
+        font-size: 0.9rem;
+        padding: 5px 12px;
+        border-radius: var(--radius-full);
+        background: var(--pastel-blue);
+        color: #333333;
+        font-family: var(--font-family-secondary);
+        font-weight: 600;
+        letter-spacing: 0.05em;
+    }
+    .section-title {
+        font-size: 1.4rem;
+        font-family: var(--font-family-primary);
+        color: var(--primary-accent);
+        margin-top: 1.5rem;
+        margin-bottom: 0.8rem;
+    }
+
+    /* Header styling */
+    .echomind-header {
+        padding: 1.5rem 0;
+        margin-bottom: 1.5rem;
+    }
+    .echomind-title-wrap {
+        gap: 1rem;
+    }
+    .echomind-title {
+        font-size: 3rem;
+        color: var(--primary-accent);
+    }
+    .echomind-subtitle {
+        font-size: 1.2rem;
+        color: var(--muted-text);
+    }
+    [data-testid="stButton-lang_toggle"] button { /* Language toggle button */
+        font-size: 1.1rem;
+        padding: 12px 20px;
+        border-radius: var(--radius-full);
+        background: var(--pastel-yellow);
+        color: var(--text-color);
+        border: 2px solid var(--border-color);
+        font-weight: 600;
+    }
+    [data-testid="stButton-lang_toggle"] button:hover {
+        background: #FFEFD5;
+        border-color: var(--secondary-accent);
+    }
+
+    /* Streamlit specific overrides */
+    .stProgress > div > div > div > div {
+        background-color: var(--primary-accent);
+    }
+    .stProgress > div > div > div {
+        background-color: var(--pastel-blue);
+    }
+    .stAlert {
+        border-radius: var(--radius-md);
+        font-size: 1.1rem;
+    }
+    .stSpinner > div {
+        color: var(--primary-accent);
+        font-size: 1.5rem;
+    }
+
+    /* Voice Output Card Styling */
+    .card.play-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 200px; /* Make the card more prominent */
+        background: linear-gradient(135deg, var(--pastel-blue) 0%, var(--pastel-green) 100%); /* Cheerful gradient */
+        color: white;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        box-shadow: var(--shadow-lg);
+        border: none;
+        padding: 30px;
+    }
+
+    .play-card .play-icon {
+        font-size: 5rem; /* Large icon for emphasis */
+        margin-bottom: 15px;
+        line-height: 1;
+    }
+
+    .play-card .play-phrase {
+        font-family: var(--font-family-primary);
+        font-size: 2.5rem; /* Very large text for readability */
+        font-weight: bold;
+        color: white; /* Ensure text is white for contrast against gradient */
+        text-align: center;
+        margin: 0;
+    }
+    
+    
+    /* General Streamlit button styling - applies to all unless overridden */
+    .stButton > button {
+        width: 100%;
+        font-family: var(--font-family-primary);
+        font-size: 1.3rem;
+        min-height: 60px;
+        padding: 20px 25px;
+        border-radius: var(--radius-lg);
+        border: 2px solid var(--border-color);
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        box-shadow: var(--shadow-sm);
+        display: flex; /* Enable flexbox for content alignment */
+        align-items: center; /* Vertically center content */
+        justify-content: center; /* Horizontally center content */
+        gap: 10px; /* Space between emoji and text */
+        transition: all 0.2s ease-in-out;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+    }
+    .stButton > button:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--secondary-accent);
+    }
+    .stButton > button:active {
+        transform: translateY(0);
+        box-shadow: var(--shadow-sm);
+    }
+    .stButton > button:focus-visible {
+        outline: 4px solid var(--pastel-blue);
+        outline-offset: 2px;
+    }
+    
     </style>
-    """, unsafe_allow_html=True)
+    """
+    st.markdown(css, unsafe_allow_html=True)
 
 def render_header() -> None:
     inject_custom_css()
@@ -226,9 +533,21 @@ def render_header() -> None:
     with col1:
         st.markdown(f'<div class="echomind-title-wrap"><h1 class="echomind-title">{TEXT["app_title"]}</h1></div>', unsafe_allow_html=True)
     with col2:
-        if st.button(TEXT["language_toggle"], key="lang_toggle"):
+        if st.button(TEXT["language_toggle"], key="lang_toggle", help="Toggle language"):
             st.session_state.language = "en" if LANG == "bn" else "bn"
             st.rerun()
+
+    # Progress Indicator
+    stage_to_step = {"intro": 1, "categories": 2, "loading": 3, "phrases": 3, "voice": 4}
+    current_step = stage_to_step.get(st.session_state.stage, 1)
+    
+    st.markdown(f"""
+    <div style="margin-bottom: 1rem;">
+        <div style="background: #e9ecef; border-radius: 999px; height: 8px;">
+            <div style="background: var(--primary-accent); width: {current_step * 25}%; height: 100%; border-radius: 999px; transition: width 0.3s ease-in-out;"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def build_context(category: str) -> Dict[str, str]:
@@ -245,7 +564,7 @@ def build_context(category: str) -> Dict[str, str]:
         "date": datetime_info["date"],
         "time": datetime_info["time"],
         "day_of_week": datetime_info["day_of_week"],
-        "time_of_day": datetime_info["time_of_day"],
+        "time_of_day": "morning" if datetime_info["now"].hour < 12 else "afternoon" if datetime_info["now"].hour < 17 else "evening",
         "location": location_str if location_str else "Location not available",
         "latitude": str(st.session_state.latitude) if st.session_state.latitude else None,
         "longitude": str(st.session_state.longitude) if st.session_state.longitude else None,
@@ -308,10 +627,7 @@ def parse_model_output(raw_text: str) -> List[Dict[str, str]]:
 
 
 def generate_ai_options(category: str, context: Dict[str, str], language: str) -> List[Dict[str, str]]:
-    model = get_gemini_model()
-    if not model:
-        st.error(TEXT["error_gemini_unavailable"])
-        st.stop()
+    client = get_gemini_client()
 
     prompt_template = load_prompt_template(language)
     context_lines = [f"{k.replace('_', ' ').title()}: {v}" for k, v in context.items() if v]
@@ -319,32 +635,40 @@ def generate_ai_options(category: str, context: Dict[str, str], language: str) -
     try:
         if st.session_state.get("qdrant_initialized"):
             personalization = qdrant_manager.get_personalization_context(
-                child_id=context["child_id"], category=category, context=context)
+                child_id=context["child_id"],
+                category=category,
+                context=context
+            )
             if personalization:
                 context_lines.append(f"Personalization: {personalization}")
-    except Exception as e:
-        print(f"Warning: Could not get personalization context: {e}")
+    except Exception:
+        pass
 
     prompt = prompt_template.format(context="\n".join(context_lines))
 
     try:
-        response = model.generate_content(prompt)
-        if not getattr(response, "text", "").strip():
-            st.error(TEXT["error_gemini_empty_response"])
-            st.stop()
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt
+        )
+
+        if not response.text:
+            raise ValueError("Empty Gemini response")
+
         return parse_model_output(response.text)
+
     except json.JSONDecodeError as e:
         st.error(TEXT["error_parse_json"].format(e=e))
-        st.info(TEXT["info_parse_json"])
         st.stop()
+
     except ValueError as e:
         st.error(TEXT["error_invalid_format"].format(e=e))
-        st.info(TEXT["info_invalid_format"])
         st.stop()
+
     except Exception as e:
         st.error(TEXT["error_gemini_api"].format(e=e))
-        st.info(TEXT["info_gemini_api"])
         st.stop()
+
 
 def fetch_options(category: str, language: str) -> None:
     context = build_context(category)
@@ -377,572 +701,13 @@ def reset_flow() -> None:
 # --- UI Sections ----------------------------------------------------------- #
 
 
-def inject_custom_css() -> None:
-    """Inject custom CSS to match the prototype design - optimized for autistic users"""
-    css = """
-    <style>
-    :root {
-        --bg: #f0f2f5;
-        --card: #ffffff;
-        --accent: #006a4e;
-        --accent-soft: #e6f2ed;
-        --text: #212121;
-        --muted: #757575;
-        --danger: #f42a41;
-        --radius-lg: 24px;
-        --radius-md: 16px;
-        --shadow-sm: 0 3px 14px rgba(0, 0, 0, 0.04);
-        --shadow-md: 0 4px 18px rgba(0, 0, 0, 0.05);
-        --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
-    }
-    
-    /* Force light theme */
-    .stApp {
-        background: var(--bg) !important;
-    }
-    
-    /* Remove all Streamlit default styling */
-    .main .block-container {
-        max-width: 420px;
-        padding: 1.5rem 1.5rem;
-        background: transparent;
-    }
-    
-    /* Hide Streamlit UI elements */
-    #MainMenu {visibility: hidden !important;}
-    footer {visibility: hidden !important;}
-    header {visibility: hidden !important;}
-    .stDeployButton {display: none !important;}
-    
-    /* Remove default button styling */
-    button {
-        font-family: 'Hind Siliguri', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-    }
-    
-    .echomind-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1rem;
-        padding: 0.5rem 0;
-    }
-    
-    .echomind-title-wrap {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    
-    .bubble-icon {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background: var(--accent-soft);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 18px;
-    }
-    
-    .echomind-title {
-        font-weight: 700;
-        font-size: 22px;
-        margin: 0;
-        color: var(--text);
-    }
-    
-    .echomind-subtitle {
-        font-size: 12px;
-        color: var(--muted);
-        margin: 0;
-    }
-    
-    .pill {
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: rgba(255,255,255,0.8);
-        font-size: 10px;
-        color: var(--muted);
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-    }
-    
-    .pill-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--accent);
-    }
-    
-    .badge {
-        padding: 2px 6px;
-        border-radius: 999px;
-        font-size: 9px;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        background: var(--accent-soft);
-        color: var(--muted);
-        display: inline-block;
-        margin-bottom: 0.5rem;
-    }
-    
-    .primary-btn-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 2rem 0;
-    }
-    
-    .primary-btn {
-        width: 200px;
-        height: 200px;
-        border-radius: 50%;
-        font-size: 18px;
-        font-weight: 700;
-        background: var(--accent);
-        color: white;
-        border: none;
-        box-shadow: 0 10px 30px rgba(0, 106, 78, 0.4);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        cursor: pointer;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
-    }
-    
-    .primary-btn:hover {
-        transform: translateY(-3px) scale(1.02);
-        box-shadow: 0 12px 35px rgba(0, 106, 78, 0.5);
-    }
-    
-    .primary-btn:active {
-        transform: translateY(0px) scale(0.98);
-        box-shadow: 0 6px 20px rgba(0, 106, 78, 0.35);
-    }
-    
-    .primary-btn:focus-visible {
-        outline: 3px solid rgba(0, 106, 78, 0.5);
-        outline-offset: 4px;
-    }
-    
-    .primary-btn-icon {
-        width: 70px;
-        height: 70px;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.18);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 30px;
-    }
-    
-    .hint {
-        font-size: 12px;
-        color: var(--muted);
-        text-align: center;
-        margin-top: 0.5rem;
-    }
-    
-    .card {
-        background: var(--card);
-        border-radius: var(--radius-lg);
-        padding: 18px;
-        box-shadow: var(--shadow-md);
-        margin-bottom: 1rem;
-    }
-    
-    .tile-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-        margin: 1rem 0;
-    }
-    
-    .tile-btn {
-        padding: 18px 14px;
-        border-radius: var(--radius-md);
-        background: var(--card);
-        box-shadow: var(--shadow-md);
-        border: 2px solid transparent;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        cursor: pointer;
-        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-        touch-action: manipulation;
-        min-height: 140px;
-        -webkit-tap-highlight-color: transparent;
-    }
-    
-    .tile-btn:hover {
-        transform: translateY(-3px) scale(1.02);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-        border-color: var(--accent-soft);
-    }
-    
-    .tile-btn:active {
-        transform: translateY(0px) scale(0.98);
-        box-shadow: var(--shadow-sm);
-    }
-    
-    .tile-btn:focus-visible {
-        outline: 3px solid var(--accent-soft);
-        outline-offset: 2px;
-    }
-    
-    .tile-icon-wrap {
-        width: 64px;
-        height: 64px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 28px;
-        margin-bottom: 4px;
-        text-align: center;
-        padding: 4px;
-        flex-shrink: 0;
-    }
-    
-    .tile-body .tile-icon-wrap {
-        background: #fff3c4;
-    }
-    
-    .tile-feelings .tile-icon-wrap {
-        background: #d9eaff;
-    }
-    
-    .tile-activities .tile-icon-wrap {
-        background: #ffd6e8;
-    }
-    
-    .tile-safety .tile-icon-wrap {
-        background: #ffdede;
-    }
-    
-    .tile-label {
-        font-size: 13px;
-        font-weight: 600;
-        text-align: center;
-        color: var(--text);
-    }
-    
-    .tile-sub {
-        font-size: 10px;
-        color: var(--muted);
-        text-align: center;
-    }
-    
-    .suggestion-list {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        margin: 1rem 0;
-    }
-    
-    .suggestion-btn {
-        width: 100%;
-        text-align: left;
-        padding: 16px 18px;
-        border-radius: var(--radius-md);
-        background: var(--card);
-        border: 2px solid transparent;
-        box-shadow: var(--shadow-sm);
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        cursor: pointer;
-        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-        touch-action: manipulation;
-        min-height: 60px;
-        -webkit-tap-highlight-color: transparent;
-    }
-    
-    .suggestion-btn:hover {
-        transform: translateY(-2px) scale(1.01);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
-        border-color: var(--accent-soft);
-    }
-    
-    .suggestion-btn:active {
-        transform: translateY(0px) scale(0.99);
-        box-shadow: var(--shadow-sm);
-    }
-    
-    .suggestion-btn:focus-visible {
-        outline: 3px solid var(--accent-soft);
-        outline-offset: 2px;
-    }
-    
-    .suggestion-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: var(--accent-soft);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 24px;
-        flex-shrink: 0;
-    }
-    
-    .suggestion-text-main {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--text);
-    }
-    
-    .none-btn {
-        width: 100%;
-        padding: 14px 12px;
-        border-radius: 999px;
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--danger);
-        background: #fee2e2;
-        border: 2px solid transparent;
-        cursor: pointer;
-        margin-top: 0.5rem;
-        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-        touch-action: manipulation;
-        min-height: 48px;
-    }
-    
-    .none-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(244, 42, 65, 0.2);
-        border-color: rgba(244, 42, 65, 0.3);
-    }
-    
-    .none-btn:active {
-        transform: translateY(0px);
-    }
-    
-    .back-btn {
-        width: 100%;
-        padding: 12px 14px;
-        border-radius: 999px;
-        background: rgba(255,255,255,0.9);
-        color: var(--muted);
-        font-size: 13px;
-        font-weight: 600;
-        border: 2px solid transparent;
-        box-shadow: var(--shadow-sm);
-        cursor: pointer;
-        margin-top: 1rem;
-        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-        touch-action: manipulation;
-        min-height: 48px;
-    }
-    
-    .back-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 16px rgba(0, 0, 0, 0.08);
-        border-color: var(--accent-soft);
-    }
-    
-    .back-btn:active {
-        transform: translateY(0px);
-    }
-    
-    .play-card {
-        text-align: center;
-        margin: 2rem 0;
-    }
-    
-    .play-icon {
-        width: 80px;
-        height: 80px;
-        border-radius: 50%;
-        background: var(--accent-soft);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 8px;
-        font-size: 32px;
-    }
-    
-    .play-phrase {
-        font-size: 18px;
-        font-weight: 700;
-        margin: 1rem 0;
-        color: var(--text);
-    }
-    
-    .play-btn {
-        margin-top: 10px;
-        padding: 12px 20px;
-        border-radius: 999px;
-        background: var(--accent);
-        color: white;
-        font-size: 14px;
-        font-weight: 600;
-        border: none;
-        cursor: pointer;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-        touch-action: manipulation;
-        min-height: 48px;
-        box-shadow: 0 4px 12px rgba(0, 106, 78, 0.3);
-    }
-    
-    .play-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(0, 106, 78, 0.4);
-    }
-    
-    .play-btn:active {
-        transform: translateY(0px);
-        box-shadow: 0 2px 8px rgba(0, 106, 78, 0.3);
-    }
-    
-    .play-btn:focus-visible {
-        outline: 3px solid rgba(0, 106, 78, 0.5);
-        outline-offset: 2px;
-    }
-    
-    .section-title {
-        font-size: 14px;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-        color: var(--text);
-    }
-    
-    /* Accessibility improvements for autistic users */
-    * {
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-    }
-    
-    /* Improve text readability */
-    body, .stApp {
-        font-family: 'Hind Siliguri', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
-        line-height: 1.6 !important;
-    }
-    
-    /* Better contrast for text */
-    .card p, .card h2 {
-        color: var(--text) !important;
-    }
-    
-    /* Larger touch targets - minimum 44x44px for accessibility */
-    button {
-        min-height: 44px !important;
-        min-width: 44px !important;
-    }
-    
-    /* Smooth animations - not jarring */
-    * {
-        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
-    }
-    
-    /* Remove distracting elements */
-    .stApp > div:first-child {
-        padding-top: 0 !important;
-    }
-    
-    /* Better spacing for clarity */
-    .card {
-        margin-bottom: 1.5rem;
-    }
-    
-    /* Ensure emojis are properly sized */
-    .tile-icon-wrap, .suggestion-icon, .bubble-icon, .play-icon {
-        font-size: inherit !important;
-        line-height: 1 !important;
-    }
-    
-    /* Hide Streamlit default elements */
-    #MainMenu {visibility: hidden !important;}
-    footer {visibility: hidden !important;}
-    header {visibility: hidden !important;}
-    .stDeployButton {display: none !important;}
-    
-    /* Remove default Streamlit styling and ensure border radius */
-    .stButton > button {
-        width: 100%;
-        border-radius: 16px !important;
-    }
-    
-    /* Default button styling - light colors with border radius */
-    button:not([kind="primary"]):not([data-testid*="cat-"]):not([data-testid*="phrase-"]):not([data-testid*="back_"]):not([data-testid*="none_"]):not([data-testid*="play_"]):not([data-testid*="back_home"]) {
-        color: #212121 !important;
-        background: #ffffff !important;
-        border: 2px solid #e2e8f0 !important;
-        border-radius: 16px !important;
-    }
-    
-    /* Primary buttons keep their accent color */
-    button[kind="primary"] {
-        color: white !important;
-        background: var(--accent) !important;
-        border: none !important;
-        border-radius: 16px !important;
-    }
-    
-    /* Ensure all buttons have proper border radius as fallback */
-    button {
-        border-radius: 16px !important;
-        user-select: none;
-        -webkit-user-select: none;
-    }
-    
-    /* Better focus indicators for keyboard navigation */
-    *:focus-visible {
-        outline-width: 3px !important;
-        outline-style: solid !important;
-        outline-offset: 2px !important;
-    }
-    </style>
-    """
-    st.markdown(css, unsafe_allow_html=True)
-
-
-def render_header() -> None:
-    inject_custom_css()
-    col1, col2 = st.columns([5, 1])
-    with col1:
-        st.markdown(f'<div class="echomind-title-wrap"><h1 class="echomind-title">{TEXT["app_title"]}</h1></div>', unsafe_allow_html=True)
-    with col2:
-        if st.button(TEXT["language_toggle"], key="lang_toggle"):
-            st.session_state.language = "en" if LANG == "bn" else "bn"
-            st.rerun()
-
-    # Progress Indicator
-    stage_to_step = {"intro": 1, "categories": 2, "loading": 3, "phrases": 3, "voice": 4}
-    current_step = stage_to_step.get(st.session_state.stage, 1)
-    
-    st.markdown(f"""
-    <div style="margin-bottom: 1rem;">
-        <div style="background: #e9ecef; border-radius: 999px; height: 8px;">
-            <div style="background: var(--accent); width: {current_step * 25}%; height: 100%; border-radius: 999px; transition: width 0.3s ease-in-out;"></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
 def render_stage_intro() -> None:
     st.markdown(f"""
     <div class="card">
         <span class="badge">{TEXT["stage_1_badge"]}</span>
-        <h2 style="margin:4px 0;font-size:18px;">{TEXT["intro_card_title"]}</h2>
-        <p style="margin:0;font-size:13px;color:var(--muted);">{TEXT["intro_card_body"]}</p>
+        <h2>{TEXT["intro_card_title"]}</h2>
+        <p>{TEXT["intro_card_body"]}</p>
     </div>
-    <style>
-    button[data-testid*="speak_main"] {{
-        height: 200px !important; border-radius: 50% !important; font-size: 18px !important;
-        font-weight: 700 !important; background: var(--accent) !important; color: white !important;
-        border: none !important; box-shadow: 0 10px 30px rgba(0, 106, 78, 0.4) !important;
-        white-space: pre-line !important; margin: 2rem auto !important;
-    }}
-    </style>
     """, unsafe_allow_html=True)
     _, col2, _ = st.columns([1, 2, 1])
     with col2:
@@ -956,18 +721,9 @@ def render_categories() -> None:
     st.markdown(f"""
     <div class="card">
         <span class="badge">{TEXT["stage_2_badge"]}</span>
-        <h2 style="margin:4px 0;font-size:17px;">{TEXT["category_card_title"]}</h2>
-        <p style="margin:0;font-size:12px;color:var(--muted);">{TEXT["category_card_body"]}</p>
+        <h2>{TEXT["category_card_title"]}</h2>
+        <p>{TEXT["category_card_body"]}</p>
     </div>
-    <style>
-    button[data-testid*="cat-"] {{
-        border-radius: 16px !important; background: #ffffff !important;
-        box-shadow: 0 4px 18px rgba(0,0,0,0.05) !important; border: 2px solid #e2e8f0 !important;
-        min-height: 140px !important; font-size: 14px !important; font-weight: 600 !important;
-        color: #212121 !important; white-space: pre-line !important; gap: 12px !important;
-    }}
-    button[data-testid*="cat-"]:hover {{ border-color: var(--accent) !important; }}
-    </style>
     """, unsafe_allow_html=True)
     
     categories_list = list(CATEGORY_CONFIGS[LANG].items())
@@ -976,57 +732,55 @@ def render_categories() -> None:
     for i, (label, emoji) in enumerate(categories_list):
         target_col = col1 if i % 2 == 0 else col2
         with target_col:
-            if st.button(f"{emoji}\n\n{label}", key=f"cat-{i}", use_container_width=True):
+            if st.button(f"{emoji} {label}", key=f"cat-{i}", use_container_width=True):
                 st.session_state.selected_category = label
                 st.session_state.stage = "loading"
                 st.rerun()
 
-    if st.button(f'← {TEXT["back_to_intro"]}', key="back_intro", use_container_width=True):
+
+    st.markdown("---") # Add a separator for better visual distinction
+    if st.button(f'🏠 {TEXT["back_to_intro"]}', key="back_intro", use_container_width=True):
         reset_flow()
         st.rerun()
 
 
 def render_phrase_options() -> None:
-    st.markdown(f"""
-    <div class="card">
-        <span class="badge">{TEXT["stage_3_badge"]}</span>
-        <h2 style="margin:4px 0;font-size:17px;">{TEXT["phrase_card_title"]}</h2>
-        <p style="margin:0;font-size:12px;color:var(--muted);">{TEXT["phrase_card_body"]}</p>
-    </div>
-    <div style="font-size:14px; font-weight:600; margin-bottom:0.5rem;">{TEXT["tap_sentence_title"]}</div>
-    <style>
-    button[data-testid*="phrase-"] {{
-        text-align: left !important; padding: 18px 20px !important; border-radius: 16px !important;
-        background: #ffffff !important; border: 2px solid #e2e8f0 !important;
-        box-shadow: 0 3px 14px rgba(0,0,0,0.04) !important; gap: 14px !important;
-        margin-bottom: 12px !important; min-height: 64px !important; font-size: 15px !important;
-    }}
-    button[data-testid*="phrase-"]:hover {{ border-color: var(--accent) !important; }}
-    </style>
-    """, unsafe_allow_html=True)
-    
-    for option in st.session_state.options:
-        if st.button(f"{option['emoji']}  {option['text']}", key=f"phrase-{option['id']}", use_container_width=True):
-            st.session_state.last_phrase = option["text"]
-            st.session_state.audio_file = synthesize_audio(option["text"], LANG)
-            
-            try:
-                if st.session_state.get("qdrant_initialized"):
-                    qdrant_manager.store_phrase(child_id=CHILD_ID, category=st.session_state.selected_category,
-                                                phrase=option["text"], context=build_context(st.session_state.selected_category))
-            except Exception as e:
-                print(f"Warning: Could not store phrase in Qdrant: {e}")
+    st.markdown(f"## {TEXT['tap_sentence_title']}")
 
-            st.session_state.stage = "voice"
-            st.rerun()
-    
-    if st.button(TEXT["show_more_options"], key="none_btn", use_container_width=True):
-        fetch_options(st.session_state.selected_category, LANG)
+    # Use a container for phrase options to maintain visual grouping and spacing
+    with st.container(border=False):
+        for option in st.session_state.options:
+            # The button text includes the emoji and the suggested phrase.
+            # Styling for "suggestion-btn" is applied via CSS targeting "stButton-phrase_*" data-testid.
+            if st.button(f"{option['emoji']}  {option['text']}", 
+                         key=f"phrase_{option['id']}", 
+                         use_container_width=True):
+                st.session_state.last_phrase = option["text"]
+                st.session_state.audio_file = synthesize_audio(option["text"], LANG)
+
+                try:
+                    if st.session_state.get("qdrant_initialized"):
+                        qdrant_manager.store_phrase(
+                            child_id=CHILD_ID,
+                            category=st.session_state.selected_category,
+                            phrase=option["text"],
+                            context=build_context(st.session_state.selected_category),
+                        )
+                except Exception:
+                    pass
+
+                st.session_state.stage = "voice"
+                st.rerun()
+
+    st.markdown("---") # Add a separator for better visual distinction
+    if st.button(TEXT["show_more_options"], key="show_more_options_btn", use_container_width=True):
+        st.session_state.stage = "loading"
         st.rerun()
 
-    if st.button(f'← {TEXT["back_to_categories"]}', key="back_categories", use_container_width=True):
+    if st.button(f'← {TEXT["back_to_categories"]}', key="back_to_categories", use_container_width=True):
         st.session_state.stage = "categories"
         st.rerun()
+
 
 
 def render_voice_output() -> None:
@@ -1034,32 +788,36 @@ def render_voice_output() -> None:
         st.session_state.stage = "phrases"
         st.rerun()
         return
-        
+
+    # Use a card for the voice output to make it visually prominent
     st.markdown(f"""
-    <div class="card">
-        <span class="badge">{TEXT["stage_4_badge"]}</span>
-        <div style="text-align:center; padding: 1rem 0;">
-            <div style="font-size:48px;">🔊</div>
-            <h2 style="margin:1rem 0;font-size:20px; font-weight:700;">{st.session_state.last_phrase}</h2>
-            <p style="margin:0;font-size:12px;color:var(--muted);">{TEXT["voice_card_body"]}</p>
+    <div class="card play-card">
+        <div style="text-align: center;">
+            <span class="play-icon">🔊</span>
+            <p class="play-phrase">{st.session_state.last_phrase}</p>
         </div>
     </div>
-    <style>
-    button[data-testid*="play_again"] {{
-        background: var(--accent) !important; color: white !important; border: none !important;
-        border-radius: 999px !important; font-weight: 600 !important; padding: 12px 20px !important;
-    }}
-    </style>
     """, unsafe_allow_html=True)
 
-    # Give user control over playback
-    if st.button(f'▶️ {TEXT["play_again"]}', key="play_again", use_container_width=True):
-        if st.session_state.audio_file:
-            st.audio(st.session_state.audio_file, autoplay=True)
+    if st.session_state.audio_file and not st.session_state.play_triggered:
+        st.audio(st.session_state.audio_file, autoplay=True)
+        st.session_state.play_triggered = True
 
-    if st.button(f'🏠 {TEXT["start_over"]}', key="back_home", use_container_width=True):
-        reset_flow()
-        st.rerun()
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # "Play Again" button with an emoji and full width.
+        # Styling applied via CSS targeting "stButton-play_again_btn".
+        if st.button(f'▶ {TEXT["play_again"]}', key="play_again_btn", use_container_width=True):
+            if st.session_state.audio_file: # Only play if audio file exists
+                st.audio(st.session_state.audio_file, autoplay=True)
+
+    with col2:
+        # "Start Over" button with an emoji and full width.
+        # Styling applied via CSS targeting "stButton-start_over_btn".
+        if st.button(f'🏠 {TEXT["start_over"]}', key="start_over_btn", use_container_width=True):
+            reset_flow()
+            st.rerun()
 
 # --- Main Render ----------------------------------------------------------- #
 
