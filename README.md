@@ -1,10 +1,11 @@
 # BornoBuddy (বর্ণবন্ধু) – Assistive AI Communication Tool
+# Visit the app by following this url: https://bornobuddy.streamlit.app/
 
 BornoBuddy is an innovative, AI-powered communication tool designed for **non-verbal or minimally verbal autistic children in Bangladesh**. It empowers children to express their needs and feelings through a simple, visual, and culturally adapted interface.
 
 ## 🚀 Live Demo
 
-Experience BornoBuddy in action! [Deploy an app](https://share.streamlit.io/)
+Experience BornoBuddy in action! [Visit the App](https://bornobuddy.streamlit.app/)
 
 ## ✨ Features
 
