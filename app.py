@@ -514,7 +514,7 @@ def inject_custom_css() -> None:
     }
     
     </style>
-    """)
+    "")
     st.markdown(css, unsafe_allow_html=True)
 
 def render_header() -> None:
@@ -668,7 +668,6 @@ def fetch_options(category: str, language: str) -> None:
     st.session_state.options = [{"id": i, **p} for i, p in enumerate(phrases)]
     st.session_state.stage = "phrases"
 
-
 def reset_flow() -> None:
     st.session_state.stage = "intro"
     st.session_state.selected_category = None
@@ -720,6 +719,7 @@ def render_categories() -> None:
         reset_flow()
         st.rerun()
 
+
 def render_phrase_options() -> None:
     st.markdown(f"## {TEXT['tap_sentence_title']}")
 
@@ -756,18 +756,19 @@ def render_phrase_options() -> None:
         st.rerun()
 
 
+
 def render_voice_output() -> None:
     if not st.session_state.last_phrase:
         st.session_state.stage = "phrases"
         st.rerun()
         return
         
-    st.markdown(f"""
+    st.markdown("""
     <div class="card play-card">
-        <span class="badge">{TEXT["stage_4_badge"]}</span>
+        <span class="badge">{stage_4_badge}</span>
         <div class="play-icon">🔊</div>
-        <p class="play-phrase">{st.session_state.last_phrase}</p>
-        <p class="hint">{TEXT["voice_card_body"]}</p>
+        <p class="play-phrase">{last_phrase}</p>
+        <p class="hint">{voice_card_body}</p>
     </div>
     """.format(
         stage_4_badge=TEXT["stage_4_badge"],
