@@ -1,7 +1,7 @@
 # BornoBuddy (বর্ণবন্ধু) – An Assistive AI Communication Tool for Verbally Impaired autistic Children in Bangladesh
 # Visit the app by following this url:https://bornobuddy.streamlit.app/
 
-**BornoBuddy (বর্ণবন্ধু)** is a simple, visual, AI-powered communication tool designed for **non-verbal or minimally verbal autistic children in Bangladesh**. It is a localized and culturally adapted version of the original EchoMind project.
+**BornoBuddy (বর্ণবন্ধু)** is a simple, visual, AI-powered communication tool designed for **non-verbal or minimally verbal autistic children in Bangladesh**.
 
 The core idea is to provide a low-effort, high-impact communication experience:
 
