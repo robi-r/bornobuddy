@@ -75,11 +75,6 @@ The typical user journey through BornoBuddy is a simplified 4-step process:
 
 ## AI & System Architecture
 
-### Architecture Diagram
-
-[**Placeholder for Architecture Diagram (Image/PDF)**]
-*Please insert your architecture diagram here. This diagram should visually represent the data flow, components (Streamlit, Gemini, gTTS, Qdrant), and their interactions.*
-
 ### Models Used
 
 *   **Google Gemini (via `google.genai`):** Utilized for generating dynamic, context-aware phrase suggestions. The specific model is configurable via the `GEMINI_MODEL` environment variable (e.g., `gemini-pro`, `gemini-1.5-flash`). The model is chosen for its natural language generation capabilities and ability to generate structured JSON output.
@@ -163,12 +158,6 @@ The prompts served as direct instructions and contextual information, guiding th
 The iterative dialogue, driven by these prompts, allowed for a systematic approach to development, ensuring that the output (the BornoBuddy application and its documentation) evolved in response to explicit requirements and identified areas for improvement.
 
 ---
-
-## Pitch Deck (For Final Submission)
-
-[**Placeholder for Pitch Deck Content**]
-*This section provides the textual content that would typically be part of a Pitch Deck. For the final submission, this should be a separate, visually compelling presentation (PDF or Google Slides).*
-
 ### Problem
 
 (Refer to the "Problem Statement" in the Overview section for detailed content.)
@@ -208,13 +197,6 @@ The iterative dialogue, driven by these prompts, allowed for a systematic approa
 (Refer to "Why the Problem Matters" in the Overview section for detailed content.)
 *   **Impact:** Empowers children, improves care, supports education, culturally relevant.
 *   **Scalability:** Model for localized AT, community integration, research data, broader accessibility.
-
-### Team Overview
-
-[**Placeholder for Team Overview**]
-*Please add information about your team members, their roles, and relevant expertise here.*
-
----
 
 ## Product Roadmap
 
