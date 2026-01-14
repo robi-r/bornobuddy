@@ -106,3 +106,64 @@ def test_load_prompt_template():
     # Test fallback
     prompt_fallback = load_prompt_template("xx") # non-existent language
     assert "Generate three short, simple phrases" in prompt_fallback
+
+@patch("app.genai.Client")
+@patch("app.load_predict_intent_prompt_template")
+@patch("app.st.error")
+@patch("app.st.stop")
+def test_predict_intent_success(mock_st_stop, mock_st_error, mock_load_template, mock_genai_client):
+    """Test successful intent prediction."""
+    from app import predict_intent # Import here to get patched version
+
+    mock_load_template.return_value = "Predict intent for: {child_input}"
+    mock_genai_client.return_value.models.generate_content.return_value.text = '{"text": "I want food", "emoji": "🍔"}'
+
+    result = predict_intent("food", "en")
+    assert result == {"text": "I want food", "emoji": "🍔"}
+    mock_st_error.assert_not_called()
+    mock_st_stop.assert_not_called()
+
+@patch("app.genai.Client")
+@patch("app.load_predict_intent_prompt_template")
+@patch("app.st.error")
+@patch("app.st.stop")
+def test_predict_intent_empty_response(mock_st_stop, mock_st_error, mock_load_template, mock_genai_client):
+    """Test empty Gemini response for intent prediction."""
+    from app import predict_intent # Import here to get patched version
+
+    mock_load_template.return_value = "Predict intent for: {child_input}"
+    mock_genai_client.return_value.models.generate_content.return_value.text = ''
+
+    predict_intent("nothing", "en")
+    mock_st_error.assert_called_once()
+    mock_st_stop.assert_called_once()
+
+@patch("app.genai.Client")
+@patch("app.load_predict_intent_prompt_template")
+@patch("app.st.error")
+@patch("app.st.stop")
+def test_predict_intent_invalid_json(mock_st_stop, mock_st_error, mock_load_template, mock_genai_client):
+    """Test invalid JSON response for intent prediction."""
+    from app import predict_intent # Import here to get patched version
+
+    mock_load_template.return_value = "Predict intent for: {child_input}"
+    mock_genai_client.return_value.models.generate_content.return_value.text = '{"text": "I want food", "emoji": "🍔"' # Malformed JSON
+
+    predict_intent("malformed", "en")
+    mock_st_error.assert_called_once()
+    mock_st_stop.assert_called_once()
+
+@patch("app.genai.Client")
+@patch("app.load_predict_intent_prompt_template")
+@patch("app.st.error")
+@patch("app.st.stop")
+def test_predict_intent_api_error(mock_st_stop, mock_st_error, mock_load_template, mock_genai_client):
+    """Test Gemini API error for intent prediction."""
+    from app import predict_intent # Import here to get patched version
+
+    mock_load_template.return_value = "Predict intent for: {child_input}"
+    mock_genai_client.return_value.models.generate_content.side_effect = Exception("API down")
+
+    predict_intent("error", "en")
+    mock_st_error.assert_called_once()
+    mock_st_stop.assert_called_once()

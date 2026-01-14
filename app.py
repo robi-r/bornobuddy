@@ -14,12 +14,30 @@ from gtts import gTTS
 import google.genai as genai
 
 import qdrant_manager
+import notifier # Import the new notifier module
 
 # --- App bootstrap & Language Configuration -------------------------------- #
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 # --- Language and Text Configuration --------------------------------------- #
+
+OFFLINE_PHRASES = {
+    "bn": {
+        "শরীর ও চাহিদা": [
+            {"text": "আমি পানি চাই", "emoji": "💧"},
+            {"text": "আমি ক্ষুধার্ত", "emoji": "🍎"},
+            {"text": "আমি বাথরুমে যেতে চাই", "emoji": "🚽"},
+        ],
+    },
+    "en": {
+        "Body & Needs": [
+            {"text": "I want water", "emoji": "💧"},
+            {"text": "I am hungry", "emoji": "🍎"},
+            {"text": "I need the bathroom", "emoji": "🚽"},
+        ],
+    },
+}
 
 TRANSLATIONS = {
     "bn": {
@@ -61,6 +79,12 @@ TRANSLATIONS = {
         "info_gemini_api": "অনুগ্রহ করে আপনার API কী এবং মডেলের নাম .env ফাইলে ঠিকভাবে দিন।",
         "warning_qdrant_init": "⚠️ Qdrant চালু করা যায়নি: {e}। অ্যাপটি পার্সোনালাইজেশন ছাড়াই চলবে।",
         "warning_audio_gen": "অডিও তৈরি করা যায়নি: {exc}",
+        "say_something_title": "কিছু বলতে চাও?", # New for text input
+        "type_phrase_label": "এখানে লিখুন:", # New for text input
+        "type_phrase_help": "শিশুটি কী বলতে চায়, তা এখানে টাইপ করুন।", # New for text input
+        "predict_phrase_button": "AI এর মাধ্যমে বাক্য তৈরি করুন", # New for text input
+        "empty_text_input_warning": "অনুগ্রহ করে কিছু লিখুন।", # New for text input
+        "or_type_something": "অথবা কিছু টাইপ করুন", # New for categories page
     },
     "en": {
         "page_title": "BornoBuddy – Assistive Communication",
@@ -101,6 +125,12 @@ TRANSLATIONS = {
         "info_gemini_api": "Please check your API key and model name in .env file.",
         "warning_qdrant_init": "⚠️ Qdrant initialization failed: {e}. App will work without personalization.",
         "warning_audio_gen": "Unable to generate audio: {exc}",
+        "say_something_title": "Say Something", # New for text input
+        "type_phrase_label": "Type your phrase here:", # New for text input
+        "type_phrase_help": "Type what the child wants to say.", # New for text input
+        "predict_phrase_button": "Predict Phrase with AI", # New for text input
+        "empty_text_input_warning": "Please type something.", # New for text input
+        "or_type_something": "or Type Something", # New for categories page
     },
 }
 
@@ -132,6 +162,10 @@ def init_session_state() -> None:
         "audio_file": None,
         "play_triggered": False,
         "language": "bn",
+        "predicted_phrase": None, # New: Stores the AI-predicted phrase from text input
+        "text_input_value": "", # New: Stores the value from the text input box
+        "emoji_only": False,
+        "previous_stage": "intro", # New: Track the previous stage for back navigation
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -144,8 +178,9 @@ TEXT = TRANSLATIONS[LANG]
 st.set_page_config(
     page_title=TEXT["page_title"],
     page_icon="🗣️",
-    layout="wide",
+    layout="wide", 
     initial_sidebar_state="collapsed",
+    
 )
 
 load_dotenv(find_dotenv())
@@ -159,9 +194,8 @@ if not GEMINI_API_KEY:
     st.stop()
 
 # Initialize Gemini client
-client = genai.Client(api_key=GEMINI_API_KEY)
+#client = genai.Client(api_key=GEMINI_API_KEY)
 
-@st.cache_resource
 @st.cache_resource
 def get_gemini_client():
     return genai.Client(api_key=GEMINI_API_KEY)
@@ -473,17 +507,18 @@ def inject_custom_css() -> None:
     }
 
     /* Ensuring emojis scale correctly */
-    .emoji {
-        font-size: inherit; /* Inherit font size from parent container */
+    .emoji, .stButton > button .emoji {
+        font-size: 1.8em; /* Significantly larger emojis */
         line-height: 1;
+        vertical-align: middle;
     }
 
     /* Adjust Streamlit default button to match custom styling */
     .stButton > button {
         width: 100%;
         font-family: var(--font-family-primary);
-        font-size: 1.4rem;
-        min-height: 65px;
+        font-size: 1.5rem; /* Slightly larger button text */
+        min-height: 75px; /* Taller buttons */
         padding: 22px 28px;
         border-radius: var(--radius-lg);
         border: 2px solid var(--border-color);
@@ -493,24 +528,203 @@ def inject_custom_css() -> None:
         display: flex; /* Enable flexbox for content alignment */
         align-items: center; /* Vertically center content */
         justify-content: center; /* Horizontally center content */
-        gap: 12px; /* Space between emoji and text */
+        gap: 15px; /* More space between emoji and text */
         transition: all 0.2s ease-in-out;
         user-select: none;
         -webkit-user-select: none;
         touch-action: manipulation;
     }
     .stButton > button:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-md);
+        transform: translateY(-5px); /* More pronounced lift on hover */
+        box-shadow: var(--shadow-lg); /* Stronger shadow on hover */
         border-color: var(--secondary-accent);
     }
     .stButton > button:active {
-        transform: translateY(-1px);
-        box-shadow: var(--shadow-sm);
+        transform: translateY(-2px); /* Slightly sink */
+        box-shadow: var(--shadow-md);
     }
     .stButton > button:focus-visible {
         outline: 4px solid var(--pastel-blue);
-        outline-offset: 3px;
+        outline-offset: 4px; /* More prominent focus indicator */
+    }
+
+    /* Override for phrase buttons to ensure emoji is large and text aligns */
+    [data-testid*="stButton-phrase_"] button { /* Phrase suggestion buttons */
+        min-height: 100px; /* Even taller suggestion buttons */
+        border-radius: var(--radius-lg); /* Larger rounded corners */
+        background-color: var(--card-bg);
+        box-shadow: var(--shadow-md); /* Slightly stronger shadow */
+        border: 2px solid var(--border-color); /* More visible border */
+        justify-content: flex-start; /* Align text to start */
+        text-align: left; /* Align text to left */
+        font-size: 1.5rem; /* Larger text for suggestions */
+        font-family: var(--font-family-primary); /* Use primary font for phrases */
+        font-weight: 700; /* Bolder text */
+        color: var(--text-color);
+        padding-left: 30px; /* More padding */
+        padding-right: 30px;
+    }
+    [data-testid*="stButton-phrase_"] button:hover {
+        border-color: var(--primary-accent); /* Blue border on hover */
+        background-color: var(--pastel-blue); /* Light blue background on hover */
+    }
+    [data-testid*="stButton-phrase_"] button > div > p { /* Target text within phrase buttons */
+        font-size: 1.5rem; /* Ensure text scales with button */
+        font-family: var(--font-family-primary);
+        font-weight: 700;
+        margin: 0;
+    }
+    [data-testid*="stButton-phrase_"] button > div > div:first-child { /* Target emoji container */
+        font-size: 2.5rem; /* Even larger emoji for phrase buttons */
+        line-height: 1;
+        margin-right: 15px;
+    }
+
+    /* Specific button overrides for larger icons/text */
+    [data-testid="stButton-speak_main"] button { /* Main "I want to speak" button */
+        width: 300px; /* Even larger */
+        height: 300px;
+        border-radius: var(--radius-full) !important;
+        font-size: 2.5rem; /* Larger font */
+        flex-direction: column;
+        gap: 20px;
+        background-color: var(--primary-accent) !important;
+        color: white !important;
+        border: none !important;
+        box-shadow: 0 12px 30px rgba(100, 181, 246, 0.5) !important; /* Stronger shadow */
+    }
+    [data-testid="stButton-speak_main"] button:hover {
+        background-color: #8CC0FA !important; /* Slightly lighter on hover */
+        box-shadow: 0 16px 35px rgba(100, 181, 246, 0.6) !important;
+    }
+    [data-testid="stButton-speak_main"] button > div > p {
+        font-size: 2.5rem;
+        margin: 0;
+    }
+    [data-testid="stButton-speak_main"] button > div > div:first-child {
+        font-size: 3.5rem; /* Very large emoji for main button */
+    }
+    
+    [data-testid="stButton-play_again_btn"] button, /* Play again button */
+    [data-testid="stButton-start_over_btn"] button { /* Start over button */
+        background-color: var(--primary-accent) !important;
+        color: white !important;
+        border: none !important;
+        min-height: 85px; /* Taller */
+        border-radius: var(--radius-full);
+        font-size: 1.8rem;
+        box-shadow: 0 10px 25px rgba(100, 181, 246, 0.4) !important;
+    }
+    [data-testid="stButton-play_again_btn"] button:hover,
+    [data-testid="stButton-start_over_btn"] button:hover {
+        background-color: #79BFFD !important;
+        box-shadow: 0 12px 30px rgba(100, 181, 246, 0.5) !important;
+    }
+
+    .play-card .play-icon { /* Specific style for the voice output emoji */
+        font-size: 5rem; /* Very large play icon */
+        margin-bottom: 20px;
+        line-height: 1;
+    }
+    .play-card .play-phrase { /* Text in the play card */
+        font-size: 2.5rem; /* Very large text for the spoken phrase */
+        font-family: var(--font-family-primary);
+        color: var(--primary-accent);
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .play-card .hint {
+        font-size: 1.2rem;
+        text-align: center;
+    }
+
+    /* Text input stage buttons */
+    [data-testid="stButton-predict_button"] button {
+        background-color: var(--secondary-accent) !important;
+        color: white !important;
+        box-shadow: 0 8px 20px rgba(129, 199, 132, 0.4) !important;
+    }
+    [data-testid="stButton-predict_button"] button:hover {
+        background-color: #90D493 !important;
+        box-shadow: 0 10px 25px rgba(129, 199, 132, 0.5) !important;
+    }
+
+    /* Category buttons */
+    [data-testid*="stButton-cat-"] button {
+        min-height: 120px; /* Larger category buttons */
+        border-radius: var(--radius-md);
+        font-size: 1.8rem; /* Larger font for category labels */
+        font-family: var(--font-family-primary);
+        font-weight: 700;
+        gap: 15px;
+    }
+    [data-testid*="stButton-cat-"] button > div > div:first-child {
+        font-size: 2.5rem; /* Large emoji for category buttons */
+    }
+
+    /* General text input styling */
+    div[data-testid="stText"] {
+        font-size: 1.5rem;
+    }
+    label[data-testid="stWidgetLabel"] {
+        font-size: 1.3rem;
+        font-family: var(--font-family-primary);
+        color: var(--text-color);
+        margin-bottom: 10px;
+    }
+    textarea[data-testid="stTextArea"], input[data-testid="stTextInput"] {
+        font-size: 1.4rem;
+        padding: 15px 20px;
+        border-radius: var(--radius-md);
+        border: 2px solid var(--border-color);
+        background-color: var(--card-bg);
+        color: var(--text-color);
+    }
+    textarea[data-testid="stTextArea"]:focus, input[data-testid="stTextInput"]:focus {
+        border-color: var(--primary-accent);
+        box-shadow: 0 0 0 3px rgba(100, 181, 246, 0.3);
+    }
+    
+    /* Ensure high color contrast for readability */
+    /* This is implicitly handled by careful choice of var(--text-color) and background */
+
+    /* Generous spacing between elements */
+    .block-container {
+        padding-top: 3rem; /* More padding */
+        padding-bottom: 3rem;
+        max-width: 1100px; /* Even wider content for wide layout */
+    }
+    .stVerticalBlock {
+        gap: 2rem; /* Increased vertical spacing */
+    }
+    .card {
+        padding: 40px; /* More padding for cards */
+        margin-bottom: 2.5rem; /* More space between cards */
+    }
+
+    /* Overall font size increases */
+    h1 { font-size: 3.5rem; } /* Larger h1 */
+    h2 { font-size: 2.8rem; } /* Larger h2 */
+    h3 { font-size: 2.2rem; } /* Larger h3 */
+    p, label, .stMarkdown, .stText {
+        font-size: 1.3rem; /* Increased body text size */
+    }
+    .hint {
+        font-size: 1.15rem; /* Larger hint text */
+    }
+    .badge {
+        font-size: 1.05rem; /* Larger badge text */
+        padding: 8px 16px;
+    }
+    .echomind-title {
+        font-size: 3.8rem; /* Even larger app title */
+    }
+    .echomind-subtitle {
+        font-size: 1.4rem; /* Larger subtitle */
+    }
+    [data-testid="stButton-lang_toggle"] button { /* Language toggle button */
+        font-size: 1.25rem;
+        padding: 16px 24px;
     }
     
     </style>
@@ -518,6 +732,11 @@ def inject_custom_css() -> None:
     st.markdown(css, unsafe_allow_html=True)
 
 def render_header() -> None:
+
+    if st.button("😊 Emoji Only", key="emoji_toggle"):
+        st.session_state.emoji_only = not st.session_state.emoji_only
+        st.rerun()
+
     inject_custom_css()
     col1, col2 = st.columns([5, 1])
     with col1:
@@ -568,6 +787,13 @@ def load_prompt_template(language: str) -> str:
         return prompt_file.read_text(encoding="utf-8").strip()
     # Fallback prompt if file is missing
     return "Generate three short, simple phrases for a non-verbal child."
+
+def load_predict_intent_prompt_template(language: str) -> str:
+    prompt_file = PROJECT_ROOT / "prompts" / f"predict_intent_prompt_{language}.txt"
+    if prompt_file.exists():
+        return prompt_file.read_text(encoding="utf-8").strip()
+    # Fallback prompt if file is missing
+    return "Rephrase the child's input into a simple, single phrase."
 
 
 def parse_model_output(raw_text: str) -> List[Dict[str, str]]:
@@ -660,13 +886,68 @@ def generate_ai_options(category: str, context: Dict[str, str], language: str) -
         st.stop()
 
 
+def predict_intent(child_input: str, language: str) -> Dict[str, str]:
+    client = get_gemini_client()
+    # Load the prompt template
+    prompt_template = load_predict_intent_prompt_template(language)
+    
+    # Escape JSON braces in the template to avoid KeyError
+    prompt_template = prompt_template.replace("{", "{{").replace("}", "}}")
+    
+    # Now safely replace our variables
+    prompt_template = prompt_template.replace("{{child_input}}", "{child_input}")
+    prompt_template = prompt_template.replace("{{context}}", "{context}")
+    
+    # Build context
+    context_data = build_context("Text Input")  # Use a generic category for context
+    context_lines = [f"{k.replace('_', ' ').title()}: {v}" for k, v in context_data.items() if v]
+
+    # Fill in the template
+    prompt = prompt_template.format(context="\n".join(context_lines), child_input=child_input)
+
+    try:
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt
+        )
+
+        if not response.text:
+            raise ValueError("Empty Gemini response")
+        
+        parsed_response = json.loads(
+            response.text.strip()
+            .replace("```json", "")
+            .replace("```", "")
+        )
+        if not isinstance(parsed_response, dict) or "text" not in parsed_response or "emoji" not in parsed_response:
+            raise ValueError("Invalid JSON format from Gemini. Expected {'text': '...', 'emoji': '...'}")
+
+        return parsed_response
+
+    except json.JSONDecodeError as e:
+        st.error(f"Failed to parse Gemini response for intent prediction as JSON: {e}")
+        st.stop()
+    except ValueError as e:
+        st.error(f"Invalid response format from Gemini for intent prediction: {e}")
+        st.stop()
+    except Exception as e:
+        st.error(f"Error calling Gemini API for intent prediction: {e}")
+        st.stop()
+
+
 def fetch_options(category: str, language: str) -> None:
     context = build_context(category)
-    phrases = generate_ai_options(category, context, language)
+    try:
+        phrases = generate_ai_options(category, context, language)
+    except Exception:
+        phrases = OFFLINE_PHRASES.get(language, {}).get(category, [])
+
     if not phrases:
         return
     st.session_state.options = [{"id": i, **p} for i, p in enumerate(phrases)]
+    st.session_state.previous_stage = st.session_state.stage # Store current stage
     st.session_state.stage = "phrases"
+
 
 
 def reset_flow() -> None:
@@ -676,6 +957,9 @@ def reset_flow() -> None:
     st.session_state.last_phrase = None
     st.session_state.audio_file = None
     st.session_state.play_triggered = False
+    st.session_state.text_input_value = ""
+    st.session_state.predicted_phrase = None
+
 
 
 # --- UI Sections ----------------------------------------------------------- #
@@ -692,6 +976,7 @@ def render_stage_intro() -> None:
     _, col2, _ = st.columns([1, 2, 1])
     with col2:
         if st.button(TEXT["speak_button"], use_container_width=True, type="primary", key="speak_main"):
+            st.session_state.previous_stage = st.session_state.stage # Store current stage
             st.session_state.stage = "categories"
             st.rerun()
     st.markdown(f'<p class="hint">{TEXT["speak_hint"]}</p>', unsafe_allow_html=True)
@@ -713,6 +998,7 @@ def render_categories() -> None:
         with target_col:
             if st.button(f"{emoji} {label}", key=f"cat-{i}", use_container_width=True):
                 st.session_state.selected_category = label
+                st.session_state.previous_stage = st.session_state.stage # Store current stage
                 st.session_state.stage = "loading"
                 st.rerun()
 
@@ -720,41 +1006,72 @@ def render_categories() -> None:
         reset_flow()
         st.rerun()
 
+    st.markdown("---") # Separator for text input button
+    if st.button(f'📝 {TEXT["or_type_something"]}', key="type_something_btn", use_container_width=True):
+        st.session_state.previous_stage = st.session_state.stage # Store current stage
+        st.session_state.stage = "text_input_stage"
+        st.rerun()
+
 def render_phrase_options() -> None:
     st.markdown(f"## {TEXT['tap_sentence_title']}")
 
     for option in st.session_state.options:
+
+        label = (
+            option["emoji"]
+            if st.session_state.emoji_only
+            else f"{option['emoji']}  {option['text']}"
+        )
+
         if st.button(
-            f"{option['emoji']}  {option['text']}",
+            label,
             key=f"phrase_{option['id']}",
             use_container_width=True
         ):
-            st.session_state.last_phrase = option["text"]
-            st.session_state.audio_file = synthesize_audio(option["text"], LANG)
+            text = option["text"]
 
+            # Generate audio
+            audio_file = synthesize_audio(text, LANG)
+
+            # 🔊 PLAY IMMEDIATELY
+            if audio_file:
+                st.audio(audio_file, autoplay=True)
+
+            # Store last phrase (still useful)
+            st.session_state.last_phrase = text
+
+            # Notify parent
+            notifier.send_notification(CHILD_ID, text)
+
+            # Store in Qdrant (unchanged)
             try:
                 if st.session_state.get("qdrant_initialized"):
                     qdrant_manager.store_phrase(
                         child_id=CHILD_ID,
                         category=st.session_state.selected_category,
-                        phrase=option["text"],
+                        phrase=text,
                         context=build_context(st.session_state.selected_category),
                     )
             except Exception:
                 pass
 
+            st.session_state.previous_stage = st.session_state.stage # Store current stage
             st.session_state.stage = "voice"
             st.rerun()
+
     
-    st.markdown("---") # Add a separator for better visual distinction
+    st.markdown("---")
     if st.button(TEXT["show_more_options"], key="show_more_options_btn", use_container_width=True):
+        st.session_state.previous_stage = st.session_state.stage # Store current stage
         st.session_state.stage = "loading"
         st.rerun()
 
     if st.button(TEXT["back_to_categories"], use_container_width=True):
+        st.session_state.previous_stage = st.session_state.stage # Store current stage
         st.session_state.stage = "categories"
         st.rerun()
 
+    
 
 def render_voice_output() -> None:
     if not st.session_state.last_phrase:
@@ -765,7 +1082,7 @@ def render_voice_output() -> None:
     st.markdown(f"""
     <div class="card play-card">
         <span class="badge">{TEXT["stage_4_badge"]}</span>
-        <div class="play-icon">'🔊'</div>
+        <div class="play-icon">🔊</div>
         <p class="play-phrase">{st.session_state.last_phrase}</p>
         <p class="hint">{TEXT["voice_card_body"]}</p>
     </div>
@@ -791,6 +1108,53 @@ def render_voice_output() -> None:
         reset_flow()
         st.rerun()
 
+    # Back button
+    if st.session_state.previous_stage in ["phrases", "text_input_stage"]:
+        if st.button(f'← {TEXT["back_to_categories"]}', key="back_from_voice", use_container_width=True):
+            st.session_state.stage = st.session_state.previous_stage
+            st.rerun()
+
+
+def render_text_input_stage() -> None:
+    st.markdown(f"## {TEXT['say_something_title']}")
+    
+    # Input box for the child to type their phrase
+    typed_text = st.text_input(
+        label=TEXT["type_phrase_label"],
+        value=st.session_state.text_input_value,
+        key="text_input_box",
+        help=TEXT["type_phrase_help"]
+    )
+    st.session_state.text_input_value = typed_text
+    st.session_state.play_triggered = False
+
+    # Button to trigger AI prediction
+    if st.button(TEXT["predict_phrase_button"], key="predict_button", use_container_width=True, type="primary"):
+        if st.session_state.text_input_value:
+            with st.spinner("Thinking..."):
+                predicted = predict_intent(st.session_state.text_input_value, LANG)
+
+                text = predicted["text"]
+                emoji = predicted["emoji"]
+
+                # 🔊 Generate & play audio immediately
+                audio_file = synthesize_audio(text, LANG)
+                if audio_file:
+                    st.audio(audio_file, autoplay=True)
+
+                # Save state (optional but useful)
+                st.session_state.last_phrase = text
+                st.session_state.predicted_phrase = f"{emoji} {text}"
+
+                # Notify parent
+                notifier.send_notification(CHILD_ID, text)
+            
+                st.session_state.previous_stage = st.session_state.stage # Store current stage
+                st.session_state.stage = "voice"
+                st.rerun()
+        else:
+            st.warning(TEXT["empty_text_input_warning"])
+
 # --- Main Render ----------------------------------------------------------- #
 
 def main() -> None:
@@ -815,6 +1179,8 @@ def main() -> None:
         st.rerun()
     elif stage == "phrases":
         render_phrase_options()
+    elif stage == "text_input_stage": # New stage for text input
+        render_text_input_stage()
     elif stage == "voice":
         render_voice_output()
 

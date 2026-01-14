@@ -50,6 +50,8 @@ BornoBuddy is built with clinical best practices for children with verbal impair
 *   **User-Controlled Audio:** The app empowers children with full control; they tap a "Play" button to hear phrases, preventing sensory overload.
 *   **Culturally-Aware Design:** Features a color scheme inspired by the Bangladeshi flag and defaults to Bengali, offering a welcoming and familiar experience for children in Bangladesh.
 *   **AI-Powered Personalization:** Utilizes Qdrant (Vector Database) to store and retrieve user phrases, enabling personalized phrase suggestions over time.
+*   **Parent Notification:** Automatically sends an email notification to a configured parent email address when a child selects a phrase, providing real-time awareness of the child's communication.
+*   **Text Input with AI Prediction:** Allows children or caregivers to type a phrase, which is then rephrased into a simple, literal statement with an emoji by Google Gemini, and can be spoken aloud.
 
 ### User Journey / Flow
 
@@ -82,7 +84,7 @@ The typical user journey through BornoBuddy is a simplified 4-step process:
 
 ### Models Used
 
-*   **Google Gemini (via `google.genai`):** Utilized for generating dynamic, context-aware phrase suggestions. The specific model is configurable via the `GEMINI_MODEL` environment variable (e.g., `gemini-pro`, `gemini-1.5-flash`). The model is chosen for its natural language generation capabilities and ability to generate structured JSON output.
+*   **Google Gemini (via `google.genai`):** Utilized for generating dynamic, context-aware phrase suggestions and for **AI-powered intent prediction** from text input. The specific model is configurable via the `GEMINI_MODEL` environment variable (e.g., `gemini-pro`, `gemini-1.5-flash`). The model is chosen for its natural language generation capabilities and ability to generate structured JSON output.
 *   **gTTS (Google Text-to-Speech):** Used for converting Bengali text into natural-sounding speech. This is an external library that interacts with Google's TTS service.
 
 ### RAG / Agents / Automation
@@ -110,6 +112,18 @@ The typical user journey through BornoBuddy is a simplified 4-step process:
     3.  Initial playback is controlled by `st.session_state.play_triggered`.
     4.  The "Play Again" button resets `st.session_state.play_triggered` to `False` and triggers `st.rerun()`, forcing a re-evaluation of the `st.audio` component and re-playback.
 *   **Error Handling:** Specific `try-except` blocks are used around Gemini API calls, JSON parsing, and audio generation to gracefully handle errors and provide informative feedback to the user via `st.error` or `st.warning`.
+*   **Parent Notification Logic:**
+    1.  Upon phrase selection in `render_phrase_options`, the `notifier.send_notification()` function is called.
+    2.  This function retrieves `APP_EMAIL`, `APP_EMAIL_PASSWORD`, and `PARENT_EMAIL` from environment variables.
+    3.  It constructs an email with the child's ID and the selected phrase.
+    4.  Using `smtplib`, the email is sent to the `PARENT_EMAIL` address. Graceful error handling is implemented to prevent app crashes if email sending fails.
+*   **Text Input and AI Prediction Logic:**
+    1.  When the user navigates to the `text_input_stage`, a Streamlit `text_input` field is displayed.
+    2.  Upon clicking the "Predict Phrase with AI" button, the `predict_intent()` function is called with the typed text and current language.
+    3.  `predict_intent()` loads a specific prompt template (`predict_intent_prompt_{language}.txt`).
+    4.  It constructs a prompt that includes the user's input and sends it to the Gemini model.
+    5.  The model's JSON response (containing a predicted phrase and emoji) is parsed.
+    6.  The predicted phrase is then set as `st.session_state.last_phrase` and its audio is synthesized, leading to the `voice` stage for playback.
 
 ---
 
@@ -227,11 +241,15 @@ The iterative dialogue, driven by these prompts, allowed for a systematic approa
 *   **Basic Personalization:** Qdrant integration to store and retrieve past user phrases.
 *   **Child-Friendly UI:** Clean, modern, intuitive design with a specific color palette.
 *   **Error Handling:** Robust error management for API calls, parsing, and audio generation.
+*   **Email Configuration:** Integration of environment variables (`APP_EMAIL`, `APP_EMAIL_PASSWORD`, `PARENT_EMAIL`) for secure email notification setup.
+*   **Prompt Templates for Intent Prediction:** Dedicated `.txt` files (`predict_intent_prompt_bn.txt`, `predict_intent_prompt_en.txt`) defining the Gemini model's behavior for rephrasing user text input.
 *   **Deployment Ready:** Configured for Streamlit Cloud deployment.
 
 ### Innovations Implemented
 
 *   **Culturally Adapted AI Communication:** Tailored for a specific linguistic and cultural context (Bangladesh/Bengali).
+*   **Email Notification for Caregivers:** Implemented real-time email notifications to parents/caregivers upon phrase selection, increasing awareness and support.
+*   **Text Input with AI-powered Intent Prediction:** Introduced a feature allowing direct text input from which AI interprets and refines the child's intended message into a clear, speakable phrase.
 *   **Personalized Phrase Suggestions:** Leveraging Qdrant for Retrieval-Augmented Generation to make AI output more relevant over time.
 *   **Predictable & Low-Cognitive Load UI:** Designed with non-verbal autistic children in mind, focusing on simplicity, visual cues, and controlled interaction.
 *   **On-Device Customization:** Qdrant runs locally, ensuring privacy and responsiveness for personalization.

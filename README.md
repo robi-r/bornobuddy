@@ -23,6 +23,8 @@ BornoBuddy is built with clinical best practices for children with verbal impair
 *   **User-Controlled Audio:** The app empowers children with full control; they tap a "Play" button to hear phrases, preventing sensory overload.
 *   **Culturally-Aware Design:** Features a color scheme inspired by the Bangladeshi flag and defaults to Bengali, offering a welcoming and familiar experience for children in Bangladesh.
 *   **AI-Powered Personalization:** Utilizes Qdrant (Vector Database) to store and retrieve user phrases, enabling personalized phrase suggestions over time.
+*   **Parent Notification:** Sends an email notification to a predefined parent email address when a child selects a phrase, enhancing caregiver awareness.
+*   **Say Something (Text Input) with AI Prediction:** Provides a text input option for children (or caregivers) to type what they want to say. The AI (Google Gemini) then predicts the child's intent and rephrases it into a simple, clear statement, which can then be spoken aloud.
 
 ---
 
@@ -30,7 +32,7 @@ BornoBuddy is built with clinical best practices for children with verbal impair
 
 *   **Language**: Python
 *   **Framework**: Streamlit (for interactive web application)
-*   **AI Engine**: Google Gemini (for context-aware phrase generation)
+*   **AI Engine**: Google Gemini (for context-aware phrase generation and intent prediction from text input)
 *   **Text-to-Speech (TTS)**: gTTS (Google Text-to-Speech for natural Bengali voice output)
 *   **Personalization**: Qdrant (Vector Database for storing and retrieving user phrases, enabling adaptive suggestions)
 *   **Configuration**: `python-dotenv` (for managing environment variables)
@@ -56,10 +58,13 @@ Follow these steps to set up and run BornoBuddy locally:
 
 3.  **Set up environment variables:**
 
-    Create a `.env` file in the project's root directory and add your Google Gemini API key:
+    Create a `.env` file in the project's root directory and add your Google Gemini API key and email configuration:
 
     ```
     GEMINI_API_KEY="your_gemini_api_key_here"
+    APP_EMAIL="your_sending_email@example.com"
+    APP_EMAIL_PASSWORD="your_email_password" # Use an app-specific password for security
+    PARENT_EMAIL="parent_email@example.com"
     # Optional: Specify your Gemini model. Defaults to 'gemini-pro'.
     # GEMINI_MODEL="gemini-1.5-flash"
     ```
