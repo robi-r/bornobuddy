@@ -85,7 +85,6 @@ TRANSLATIONS = {
         "predict_phrase_button": "AI এর মাধ্যমে বাক্য তৈরি করুন", # New for text input
         "empty_text_input_warning": "অনুগ্রহ করে কিছু লিখুন।", # New for text input
         "or_type_something": "অথবা কিছু টাইপ করুন", # New for categories page
-        "home_button": "🏠 হোম", # New for home button
     },
     "en": {
         "page_title": "BornoBuddy – Assistive Communication",
@@ -132,7 +131,6 @@ TRANSLATIONS = {
         "predict_phrase_button": "Predict Phrase with AI", # New for text input
         "empty_text_input_warning": "Please type something.", # New for text input
         "or_type_something": "or Type Something", # New for categories page
-        "home_button": "🏠 Home", # New for home button
     },
 }
 
@@ -743,14 +741,10 @@ def render_header() -> None:
         st.rerun()
 
     inject_custom_css()
-    col_home, col_title, col_lang = st.columns([1, 4, 1])
-    with col_home:
-        if st.button(TEXT["home_button"], key="home_button_nav", use_container_width=True):
-            reset_flow()
-            st.rerun()
-    with col_title:
+    col1, col2 = st.columns([5, 1])
+    with col1:
         st.markdown(f'<div class="echomind-title-wrap"><h1 class="echomind-title">{TEXT["app_title"]}</h1></div>', unsafe_allow_html=True)
-    with col_lang:
+    with col2:
         if st.button(TEXT["language_toggle"], key="lang_toggle", help="Toggle language"):
             st.session_state.language = "en" if LANG == "bn" else "bn"
             st.rerun()
@@ -1130,8 +1124,14 @@ def render_voice_output() -> None:
 
 
 def render_text_input_stage() -> None:
+    # ⬅ Back button (must be at the top)
+    if st.button("⬅ Back", use_container_width=True):
+        st.session_state.stage = st.session_state.get("previous_stage", "home")
+        st.rerun()
+
     st.markdown(f"## {TEXT['say_something_title']}")
 
+    # Input box
     typed_text = st.text_input(
         label=TEXT["type_phrase_label"],
         value=st.session_state.text_input_value,
@@ -1140,40 +1140,43 @@ def render_text_input_stage() -> None:
     )
 
     st.session_state.text_input_value = typed_text
+    st.session_state.play_triggered = False
 
+    # Predict button
     if st.button(
         TEXT["predict_phrase_button"],
         key="predict_button",
         use_container_width=True,
         type="primary"
     ):
-        if typed_text.strip():
+        if st.session_state.text_input_value:
             with st.spinner("Thinking..."):
-                predicted = predict_intent(typed_text, LANG)
+                predicted = predict_intent(
+                    st.session_state.text_input_value,
+                    LANG
+                )
 
                 text = predicted["text"]
                 emoji = predicted["emoji"]
 
-                # Generate audio ONCE
+                # 🔊 Audio
                 audio_file = synthesize_audio(text, LANG)
+                if audio_file:
+                    st.audio(audio_file, autoplay=True)
 
-                # Save to session (NO stage change)
+                # Save state
                 st.session_state.last_phrase = text
                 st.session_state.predicted_phrase = f"{emoji} {text}"
-                st.session_state.audio_file = audio_file
-                st.session_state.audio_played = False
 
+                # Notify parent
                 notifier.send_notification(CHILD_ID, text)
+
+                # Store stage history
+                st.session_state.previous_stage = st.session_state.stage
+                st.session_state.stage = "voice"
+                st.rerun()
         else:
             st.warning(TEXT["empty_text_input_warning"])
-
-    # 🔊 Play audio without navigation
-    if (
-        st.session_state.get("audio_file")
-        and not st.session_state.get("audio_played", False)
-    ):
-        st.audio(st.session_state.audio_file, autoplay=True)
-        st.session_state.audio_played = True
 
 
 
