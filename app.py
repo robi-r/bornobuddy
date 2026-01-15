@@ -45,25 +45,25 @@ TRANSLATIONS = {
         "app_title": "বর্ণবন্ধু",
         "app_subtitle": "বলুন · বাছুন · শুনুন",
         "speak_button": "🎙️\n\nআমি বলতে চাই",
-        "speak_hint": "শুরু করতে একবার চাপ দিন।",
+        "speak_hint": "শুরু করতে একবার চাপ দাও।",
         "intro_card_title": "আমি কথা বলতে চাই",
         "intro_card_body": "বড় বাটনে চাপ দিয়ে তুমি কথা বলা শুরু করতে পারে।",
         "category_card_title": "তুমি কি বলতে চাও?",
         "category_card_body": "শিশুদের সুবিধার জন্য এখানে চারটি বিভাগ রাখা হয়েছে।",
         "phrase_card_title": "তুমি কি বলতে চাও?",
-        "phrase_card_body": "প্রাসঙ্গিক তথ্যের উপর ভিত্তি করে, বর্ণবন্ধু আপনাকে বাক্য তৈরি করে দেবে।",
-        "voice_card_title": "কথা শুনুন",
-        "voice_card_body": "সিস্টেমটি শিশুর জন্য এই বাক্যটি জোরে জোরে বলবে।",
+        "phrase_card_body": "প্রাসঙ্গিক তথ্যের উপর ভিত্তি করে, বর্ণবন্ধু তোমাকে বাক্য তৈরি করে দেবে।",
+        "voice_card_title": "কথা শুন",
+        "voice_card_body": "বর্ণবন্ধু তোমার জন্য এই বাক্যটি জোরে জোরে বলবে।",
         "stage_1_badge": "ধাপ ১ · শুরু",
         "stage_2_badge": "ধাপ ২ · বিষয়",
         "stage_3_badge": "ধাপ ৩ · পরামর্শ",
         "stage_4_badge": "ধাপ ৪ · শুনুন",
-        "tap_sentence_title": "একটি বাক্য বাছাই করুন",
-        "show_more_options": "✖ এগুলো নয় · আরও দেখুন",
-        "back_to_categories": "← বিভাগ পাতায় ফিরে যান",
-        "back_to_intro": "← পিছনে যান",
-        "play_again": "▶ আবার বলুন",
-        "start_over": "🏠 আবার শুরু করুন",
+        "tap_sentence_title": "একটি বাক্য বাছাই কর",
+        "show_more_options": "✖ এগুলো নয় · আরও দেখ",
+        "back_to_categories": "← বিভাগ পাতায় ফিরে যাও",
+        "back_to_intro": "← পিছনে যাও",
+        "play_again": "▶ আবার বলব",
+        "start_over": "🏠 আবার শুরু করব",
         "loading_phrases": "বাক্য লোড হচ্ছে...",
         "language_toggle": "English",
         "error_gemini_key": "GEMINI_API_KEY পাওয়া যায়নি। অনুগ্রহ করে আপনার .env ফাইলে এটি যোগ করুন।",
@@ -85,6 +85,7 @@ TRANSLATIONS = {
         "predict_phrase_button": "AI এর মাধ্যমে বাক্য তৈরি করুন", # New for text input
         "empty_text_input_warning": "অনুগ্রহ করে কিছু লিখুন।", # New for text input
         "or_type_something": "অথবা কিছু টাইপ করুন", # New for categories page
+        "home_button": "🏠 হোম", # New for home button
     },
     "en": {
         "page_title": "BornoBuddy – Assistive Communication",
@@ -131,15 +132,16 @@ TRANSLATIONS = {
         "predict_phrase_button": "Predict Phrase with AI", # New for text input
         "empty_text_input_warning": "Please type something.", # New for text input
         "or_type_something": "or Type Something", # New for categories page
+        "home_button": "🏠 Home", # New for home button
     },
 }
 
 CATEGORY_CONFIGS = {
     "bn": {
-        "শরীর ও চাহিদা": "🍎",
-        "অনুভূতি ও সংবেদন": "💛",
-        "কাজ ও মানুষ": "🎨",
-        "সাহায্য ও সুরক্ষা": "🆘",
+        "আমার শরীর ও প্রয়োজন": "🍎",
+        "আমার অনুভূতি জানাতে চাই": "💛",
+        "কিছু করতে চাই": "🎨",
+        "সাহায্য ও সুরক্ষা চাই": "🆘",
     },
     "en": {
         "Body & Needs": "🍎",
@@ -166,6 +168,9 @@ def init_session_state() -> None:
         "text_input_value": "", # New: Stores the value from the text input box
         "emoji_only": False,
         "previous_stage": "intro", # New: Track the previous stage for back navigation
+        "predicted_audio_file": None, # New: Store audio file for predicted phrase
+        "phrase_predicted": False, # New: Flag to indicate if a phrase has been predicted
+        "play_count": 0, # For forcing audio replay
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -575,7 +580,7 @@ def inject_custom_css() -> None:
         margin: 0;
     }
     [data-testid*="stButton-phrase_"] button > div > div:first-child { /* Target emoji container */
-        font-size: 2.5rem; /* Even larger emoji for phrase buttons */
+        font-size: 6.0rem; /* Even larger emoji for phrase buttons */
         line-height: 1;
         margin-right: 15px;
     }
@@ -659,7 +664,7 @@ def inject_custom_css() -> None:
         gap: 15px;
     }
     [data-testid*="stButton-cat-"] button > div > div:first-child {
-        font-size: 2.5rem; /* Large emoji for category buttons */
+        font-size: 5.5rem; /* Large emoji for category buttons */
     }
 
     /* General text input styling */
@@ -738,10 +743,14 @@ def render_header() -> None:
         st.rerun()
 
     inject_custom_css()
-    col1, col2 = st.columns([5, 1])
-    with col1:
+    col_home, col_title, col_lang = st.columns([1, 4, 1])
+    with col_home:
+        if st.button(TEXT["home_button"], key="home_button_nav", use_container_width=True):
+            reset_flow()
+            st.rerun()
+    with col_title:
         st.markdown(f'<div class="echomind-title-wrap"><h1 class="echomind-title">{TEXT["app_title"]}</h1></div>', unsafe_allow_html=True)
-    with col2:
+    with col_lang:
         if st.button(TEXT["language_toggle"], key="lang_toggle", help="Toggle language"):
             st.session_state.language = "en" if LANG == "bn" else "bn"
             st.rerun()
@@ -959,6 +968,9 @@ def reset_flow() -> None:
     st.session_state.play_triggered = False
     st.session_state.text_input_value = ""
     st.session_state.predicted_phrase = None
+    st.session_state.predicted_audio_file = None
+    st.session_state.phrase_predicted = False
+    st.session_state.play_count = 0
 
 
 
@@ -1055,9 +1067,11 @@ def render_phrase_options() -> None:
             except Exception:
                 pass
 
-            st.session_state.previous_stage = st.session_state.stage # Store current stage
-            st.session_state.stage = "voice"
-            st.rerun()
+            # Storing last phrase, notifying parent, and storing in Qdrant will still occur.
+
+            # We explicitly do NOT change the stage to "voice" and do NOT call st.rerun()
+            # to keep the user on the current phrase options page after audio plays.
+            # This addresses the bug where pressing a button leads to a new page.
 
     
     st.markdown("---")
@@ -1117,43 +1131,51 @@ def render_voice_output() -> None:
 
 def render_text_input_stage() -> None:
     st.markdown(f"## {TEXT['say_something_title']}")
-    
-    # Input box for the child to type their phrase
+
     typed_text = st.text_input(
         label=TEXT["type_phrase_label"],
         value=st.session_state.text_input_value,
         key="text_input_box",
         help=TEXT["type_phrase_help"]
     )
-    st.session_state.text_input_value = typed_text
-    st.session_state.play_triggered = False
 
-    # Button to trigger AI prediction
-    if st.button(TEXT["predict_phrase_button"], key="predict_button", use_container_width=True, type="primary"):
-        if st.session_state.text_input_value:
+    st.session_state.text_input_value = typed_text
+
+    if st.button(
+        TEXT["predict_phrase_button"],
+        key="predict_button",
+        use_container_width=True,
+        type="primary"
+    ):
+        if typed_text.strip():
             with st.spinner("Thinking..."):
-                predicted = predict_intent(st.session_state.text_input_value, LANG)
+                predicted = predict_intent(typed_text, LANG)
 
                 text = predicted["text"]
                 emoji = predicted["emoji"]
 
-                # 🔊 Generate & play audio immediately
+                # Generate audio ONCE
                 audio_file = synthesize_audio(text, LANG)
-                if audio_file:
-                    st.audio(audio_file, autoplay=True)
 
-                # Save state (optional but useful)
+                # Save to session (NO stage change)
                 st.session_state.last_phrase = text
                 st.session_state.predicted_phrase = f"{emoji} {text}"
+                st.session_state.audio_file = audio_file
+                st.session_state.audio_played = False
 
-                # Notify parent
                 notifier.send_notification(CHILD_ID, text)
-            
-                st.session_state.previous_stage = st.session_state.stage # Store current stage
-                st.session_state.stage = "voice"
-                st.rerun()
         else:
             st.warning(TEXT["empty_text_input_warning"])
+
+    # 🔊 Play audio without navigation
+    if (
+        st.session_state.get("audio_file")
+        and not st.session_state.get("audio_played", False)
+    ):
+        st.audio(st.session_state.audio_file, autoplay=True)
+        st.session_state.audio_played = True
+
+
 
 # --- Main Render ----------------------------------------------------------- #
 
