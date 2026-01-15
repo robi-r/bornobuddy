@@ -85,6 +85,7 @@ TRANSLATIONS = {
         "predict_phrase_button": "AI এর মাধ্যমে বাক্য তৈরি করুন", # New for text input
         "empty_text_input_warning": "অনুগ্রহ করে কিছু লিখুন।", # New for text input
         "or_type_something": "অথবা কিছু টাইপ করুন", # New for categories page
+        "home_button": "🏠 হোম", # New for home button
     },
     "en": {
         "page_title": "BornoBuddy – Assistive Communication",
@@ -131,6 +132,7 @@ TRANSLATIONS = {
         "predict_phrase_button": "Predict Phrase with AI", # New for text input
         "empty_text_input_warning": "Please type something.", # New for text input
         "or_type_something": "or Type Something", # New for categories page
+        "home_button": "🏠 Home", # New for home button
     },
 }
 
@@ -741,10 +743,14 @@ def render_header() -> None:
         st.rerun()
 
     inject_custom_css()
-    col1, col2 = st.columns([5, 1])
-    with col1:
+    col_home, col_title, col_lang = st.columns([1, 4, 1])
+    with col_home:
+        if st.button(TEXT["home_button"], key="home_button_nav", use_container_width=True):
+            reset_flow()
+            st.rerun()
+    with col_title:
         st.markdown(f'<div class="echomind-title-wrap"><h1 class="echomind-title">{TEXT["app_title"]}</h1></div>', unsafe_allow_html=True)
-    with col2:
+    with col_lang:
         if st.button(TEXT["language_toggle"], key="lang_toggle", help="Toggle language"):
             st.session_state.language = "en" if LANG == "bn" else "bn"
             st.rerun()
